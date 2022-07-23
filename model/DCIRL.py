@@ -12,19 +12,19 @@ import numpy
 
 
 class MLP(nn.Module):
-    def __init__(self, num_i, num_h, num_o, layer_h=1):
+    def __init__(self, in_features, hidden_features, out_features, hidden_layers=1):
         super(MLP, self).__init__()
-        self.layer1 = nn.Linear(num_i, num_h)
-        self.layer2 = self._make_layer(num_h, layer_h)
-        self.layer3 = nn.Linear(num_h, num_o)
+        self.layer1 = nn.Linear(in_features, hidden_features)
+        self.layer2 = self._make_layer(hidden_features, hidden_layers)
+        self.layer3 = nn.Linear(hidden_features, out_features)
 
     @staticmethod
-    def _make_layer(num_h, layer_h):
+    def _make_layer(hidden_features, hidden_layers):
         layers = nn.Sequential()
         layers.add_module("hidden_relu_0", nn.ReLU())
 
-        for i in range(layer_h):
-            layers.add_module("hidden_linear_%d" % (i + 1), nn.Linear(num_h, num_h))
+        for i in range(hidden_layers):
+            layers.add_module("hidden_linear_%d" % (i + 1), nn.Linear(hidden_features, hidden_features))
             layers.add_module("hidden_relu_%d" % (i + 1), nn.ReLU())
         return layers
 
@@ -34,13 +34,43 @@ class MLP(nn.Module):
         x = self.layer3(x)
         return x
 
-image_size = 224 * 224 * 3
-basic_module_hidden_size = 112 * 56
-basic_module_hidden_number = 3
-middle_module_hidden_size = 28 * 112
-middle_module_hidden_number = 2
+
+model_config = {
+    'image_size': 224 * 224 * 3,
+    'basic_module': {
+        'hidden_features': 112 * 56,
+        'hidden_layers': 3,
+        'output_features': 112 * 56,
+    },
+    'middle_module': {
+        'hidden_features': 28 * 112,
+        'hidden_layers': 2,
+        'output_features': 28 * 112,
+    },
+    'senior_module': {
+        'output_features': 112 * 112,
+    }
+}
+
+
 class DCModule(nn.Module):
-    def __init__(self):
+    def __init__(self, model_config):
         super(DCModule, self).__init__()
-        self.basic_module = MLP(base_module_)
-        self.middle_module = MLP(128 * 64, 64 * 64, 32 * 64,2)
+        self.basic_module = MLP(in_features=model_config['image_size'],
+                                hidden_features=model_config['basic_module']['hidden_features'],
+                                out_features=model_config['basic_module']['output_features'],
+                                hidden_layers=model_config['basic_module']['hidden_layers'],
+                                )
+        self.basic_module = MLP(in_features=model_config['basic_module']['output_features'],
+                                hidden_features=model_config['middle_module']['hidden_features'],
+                                out_features=model_config['middle_module']['output_features'],
+                                hidden_layers=model_config['middle_module']['hidden_layers'],
+                                )
+        self.senior_module = nn.Linear(in_features=model_config['middle_module']['output_features'],
+                                       output_features=model_config['senior_module']['output_features']
+                                       )
+
+    def forward(self, x):
+        x1 = self.basic_module(x)
+
+
