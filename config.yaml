@@ -1,0 +1,33 @@
+model_config:
+  image_size: 224 * 224 * 3
+
+  basic_module:
+    hidden_features: 112 * 56,
+    hidden_layers: 3,
+    output_features: 112 * 56,
+  middle_module:
+    hidden_features: 28 * 112,
+    hidden_layers: 2,
+    output_features: 28 * 112,
+  senior_module:
+    output_features: 112 * 112
+
+basic_config:
+  batch_size: 16
+  epoch: 50
+  lr: 0.001
+  num_classes: 7
+
+optimizer_config:
+  # sgd, adam
+  optimizer_type: sgd
+  lr: ${basic_config.lr}
+  momentum: 0.9
+  weight_decay: 5e-4
+  nesterov: true
+
+  # step, multistep, exp
+  scheduler_type: step
+  lr_decay_step: 40
+  lr_decay_rate: 0.1
+

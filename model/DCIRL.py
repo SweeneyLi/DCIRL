@@ -5,7 +5,6 @@
 @Date  :2022/7/21 5:36 PM
 @Desc  :
 """
-import torch
 from torch import nn
 import torch.nn.functional as F
 import numpy
@@ -35,24 +34,6 @@ class MLP(nn.Module):
         return x
 
 
-model_config = {
-    'image_size': 224 * 224 * 3,
-    'basic_module': {
-        'hidden_features': 112 * 56,
-        'hidden_layers': 3,
-        'output_features': 112 * 56,
-    },
-    'middle_module': {
-        'hidden_features': 28 * 112,
-        'hidden_layers': 2,
-        'output_features': 28 * 112,
-    },
-    'senior_module': {
-        'output_features': 112 * 112,
-    }
-}
-
-
 class DCModule(nn.Module):
     def __init__(self, model_config):
         super(DCModule, self).__init__()
@@ -61,16 +42,17 @@ class DCModule(nn.Module):
                                 out_features=model_config['basic_module']['output_features'],
                                 hidden_layers=model_config['basic_module']['hidden_layers'],
                                 )
-        self.basic_module = MLP(in_features=model_config['basic_module']['output_features'],
-                                hidden_features=model_config['middle_module']['hidden_features'],
-                                out_features=model_config['middle_module']['output_features'],
-                                hidden_layers=model_config['middle_module']['hidden_layers'],
-                                )
+        self.middle_module = MLP(in_features=model_config['basic_module']['output_features'],
+                                 hidden_features=model_config['middle_module']['hidden_features'],
+                                 out_features=model_config['middle_module']['output_features'],
+                                 hidden_layers=model_config['middle_module']['hidden_layers'],
+                                 )
         self.senior_module = nn.Linear(in_features=model_config['middle_module']['output_features'],
-                                       output_features=model_config['senior_module']['output_features']
+                                       out_features=model_config['senior_module']['output_features']
                                        )
 
-    def forward(self, x):
-        x1 = self.basic_module(x)
-
-
+    def forward(self, input_feature):
+        basic_feature = self.basic_module(input_feature)
+        middle_feature = self.middle_module(basic_feature)
+        senior_feature = self.senior_module(middle_feature)
+        return basic_feature, middle_feature, senior_feature
