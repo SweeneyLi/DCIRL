@@ -3,7 +3,7 @@
 @Author:SweeneyLi
 @Email :sweeneylee.gm@gmail.com
 @Date  :2022/7/23 9:21 AM
-@Desc  :
+@Desc  :train the model
 """
 import torch.cuda
 from model.DCIRL import DCModule

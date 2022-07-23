@@ -3,7 +3,7 @@
 @Author:SweeneyLi
 @Email :sweeneylee.gm@gmail.com
 @Date  :2022/7/23 9:38 AM
-@Desc  :
+@Desc  :build the optimizer
 """
 
 from torch import optim
