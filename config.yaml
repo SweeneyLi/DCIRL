@@ -3,24 +3,30 @@ dataset:
   path: "/home/share/image_classification/cat_dog_recognition/train"
   image_size: 224
 model:
-  input_features: !!python/object/apply:eval [ 224 * 224 * 3 ]
+  input_features: (224, 224, 3)
   basic_module:
-    hidden_features: !!python/object/apply:eval [ 112 * 56 ]
-    hidden_layers: 3
-    output_features: !!python/object/apply:eval [ 112 * 56 ]
+    hidden_features: (28, 28)
+    hidden_layers: 1
+    out_features: (7, 28)
   middle_module:
-    hidden_features: !!python/object/apply:eval [ 28 * 112 ]
-    hidden_layers: 2
-    output_features: !!python/object/apply:eval [ 28 * 112 ]
+    hidden_features: (14, 28)
+    hidden_layers: 1
+    out_features: (14, 14)
   senior_module:
-    output_features: !!python/object/apply:eval [ 112 * 112 ]
+    out_features: (784) # 28 * 28
 loss:
-  l: 0.5
-  a: 1
-  b: 1
-  g: 0.005
+  coefficient:
+    whole_different_coefficient: 1
+    off_diag_coefficient: 0.005
+    common_coefficient: 1
+    different_coefficient: 1
+    independent_coefficient: 0.5
+  threshold:
+    whole_loss_threshold: 0.001
+    contrast_loss_threshold: 0.001
+    independent_loss_threshold: 0.001
 train:
-  batch_size: 16
+  batch_size: 10
   epoch: 50
   lr: 0.001
 optimizer:

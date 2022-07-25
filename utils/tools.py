@@ -20,3 +20,9 @@ def time_format(seconds):
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
     return '%02d:%02d:%02d' % (h, m, s)
+
+
+def str_to_tuple(input_string):
+    if type(input_string) != str:
+        return input_string
+    return tuple([int(i) for i in input_string.lstrip('(').rstrip(')').split(',')])

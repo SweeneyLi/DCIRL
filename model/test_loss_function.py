@@ -9,7 +9,8 @@ import torch
 
 from model.loss_function import DCLoss
 
-dc_loss = DCLoss(batch_size=5, class_num=2, l=1, a=1, b=1, g=1, accuracy_same_threshold=0.8,
+dc_loss = DCLoss(batch_size=5, class_num=2, off_diag_coefficient=0.005, independent_coefficient=1, common_coefficient=1,
+                 different_coefficient=1, whole_different_coefficient=1, accuracy_same_threshold=0.8,
                  accuracy_different_threshold=0.2)
 
 
@@ -65,10 +66,10 @@ class TestDCLoss:
     # def test_get_contrast_loss(self):
     #     assert False
     #
-    # def test_get_commonness_loss(self):
+    # def test_get_common_loss(self):
     #     assert False
     #
-    # def test_get_individuality_loss(self):
+    # def test_get_different_loss(self):
     #     assert False
     #
     # def test_get_independent_loss(self):

@@ -6,6 +6,8 @@
 @Desc  :train the model
 """
 import os
+import warnings
+from warnings import simplefilter
 
 import torch.cuda
 from torch.autograd import Variable
@@ -14,9 +16,12 @@ from data.dataloader import get_data_loader_dict
 from model.DCIRL import DCModule
 from model.loss_function import DCLoss
 from model.optimizer_factory import get_optim_and_scheduler
-from utils.tools import read_config
+from utils.tools import read_config, str_to_tuple
 from utils.logger import Logger
 from utils.visualizaiton import Visualization
+
+warnings.filterwarnings("ignore")
+simplefilter(action='ignore', category=FutureWarning)
 
 # load config
 config_path = 'config.yaml'
@@ -34,7 +39,7 @@ class Trainer:
         self.data_loader_dict = get_data_loader_dict(
             dataset_name=config['dataset']['name'],
             dataset_path=config['dataset']['path'],
-            image_size=config['model']['image_size'],
+            image_size=config['dataset']['image_size'],
             batch_size=config['train']['batch_size'],
             shuffle=True,
             num_workers=4)
@@ -42,28 +47,38 @@ class Trainer:
 
         # network
         self.model = DCModule(
-            basic_module_in_features=config['model']['basic_module']['input_features'],
-            basic_module_hidden_features=config['model']['basic_module']['hidden_features'],
-            basic_module_out_features=config['model']['basic_module']['out_features'],
+            basic_module_in_features=str_to_tuple(config['model']['input_features']),
+            basic_module_hidden_features=str_to_tuple(config['model']['basic_module']['hidden_features']),
+            basic_module_out_features=str_to_tuple(config['model']['basic_module']['out_features']),
             basic_module_hidden_layers=config['model']['middle_module']['hidden_layers'],
-            middle_module_hidden_features=config['model']['middle_module']['hidden_features'],
-            middle_module_out_features=config['model']['middle_module']['out_features'],
+            middle_module_hidden_features=str_to_tuple(config['model']['middle_module']['hidden_features']),
+            middle_module_out_features=str_to_tuple(config['model']['middle_module']['out_features']),
             middle_module_hidden_layers=config['model']['middle_module']['hidden_layers'],
-            senior_module_out_features=config['model']['senior_module']['out_features']
+            senior_module_out_features=str_to_tuple(config['model']['senior_module']['out_features'])
         ).cuda()
         self.model = torch.nn.DataParallel(self.model)
+
+        print(self.model)
+        for name, parameters in self.model.named_parameters():
+            print(name, ':', parameters.size())
+        print('# generator parameters:', sum(param.numel() for param in self.model.parameters()))
 
         # loss
         self.loss_function = DCLoss(
             batch_size=config['train']['batch_size'],
             class_num=self.class_number,
-            l=config['loss']['l'],
-            a=config['loss']['a'],
-            b=config['loss']['b'],
-            g=config['loss']['g'],
+            off_diag_coefficient=config['loss']['coefficient']['off_diag_coefficient'],
+            independent_coefficient=config['loss']['coefficient']['independent_coefficient'],
+            common_coefficient=config['loss']['coefficient']['common_coefficient'],
+            different_coefficient=config['loss']['coefficient']['different_coefficient'],
+            whole_different_coefficient=config['loss']['coefficient']['whole_different_coefficient'],
             accuracy_same_threshold=config['log']['accuracy_same_threshold'],
             accuracy_different_threshold=config['log']['accuracy_different_threshold']
         )
+        self.train_stage = 1
+        self.whole_loss_threshold = config['loss']['threshold']['whole_loss_threshold']
+        self.contrast_loss_threshold = config['loss']['threshold']['contrast_loss_threshold']
+        self.independent_loss_threshold = config['loss']['threshold']['independent_loss_threshold']
 
         # train
         self.batch_size = config['train']['batch_size']
@@ -73,6 +88,7 @@ class Trainer:
         # optimizer
         self.optimizer, self.scheduler = get_optim_and_scheduler(
             model=self.model,
+            lr=config['train']['lr'],
             optimizer_config=config['optimizer']
         )
 
@@ -90,7 +106,10 @@ class Trainer:
         self.global_iter = 1
         self.best_val_acc = 0
         self.best_val_epoch = 0
-        self.results = {}
+        self.results = {'val': [{} for _ in range(self.epochs)], 'test': [{} for _ in range(self.epochs)]}
+        # sentry
+        self.results['val'][0] = {'same': 10, 'different': 10}
+        self.results['test'][0] = {'same': 10, 'different': 10}
 
         # visual
         self.visualize = Visualization(
@@ -105,9 +124,9 @@ class Trainer:
     def do_training(self):
         self.logger.save_config()
 
-        # self.results = {"val": torch.zeros(self.epochs), "test": torch.zeros(self.epochs)}
-        # self.best_val_acc = 0
-        # self.best_val_epoch = 0
+        self.results = {"val": None, "test": None}
+        self.best_val_acc = 0
+        self.best_val_epoch = 0
 
         for self.current_epoch in range(1, self.epochs + 1):
             self.scheduler.step()
@@ -116,9 +135,9 @@ class Trainer:
             self._do_train_epoch()
             self.logger.finish_epoch()
 
-        # val_res = self.results['val']
-        # test_res = self.results['test']
-        # self.logger.save_best_acc(val_res, test_res, self.best_val_acc, self.best_val_epoch - 1)
+        val_res = self.results['val']
+        test_res = self.results['test']
+        self.logger.save_result(val_res, test_res, self.best_val_acc, self.best_val_epoch)
 
     def _do_train_epoch(self):
         self.model.train()
@@ -128,8 +147,8 @@ class Trainer:
         for iter_idx, (samples, labels) in enumerate(train_data_loader):
             # preprocessing
             contrast_samples, contrast_labels = train_data_loader.dataset.get_contrast_batch()
-            samples.extend(contrast_samples)
-            labels.extend(contrast_labels)
+            torch.cat((samples, contrast_samples))
+            torch.cat((labels, contrast_labels))
 
             samples = Variable(samples.cuda())
             labels = Variable(labels.cuda())
@@ -151,10 +170,12 @@ class Trainer:
             correct_dict['same'] = correct_number_same
             correct_dict['different'] = correct_number_different
 
-            contrast_loss = self.loss_function.get_contrast_loss(middle_feature, labels)
+            contrast_loss = self.loss_function.get_contrast_loss(middle_feature,
+                                                                 labels) if self.train_stage > 1 else torch.tensor(0)
             loss_dict['contrast_loss'] = contrast_loss
 
-            independent_loss = self.loss_function.get_independent_loss(basic_feature)
+            independent_loss = self.loss_function.get_independent_loss(
+                basic_feature) if self.train_stage > 2 else torch.tensor(0)
             loss_dict['independent_loss'] = independent_loss
 
             total_loss = whole_loss + contrast_loss + independent_loss
@@ -187,31 +208,45 @@ class Trainer:
                 batch_number=batch_number
             )
 
-            # evaluation
-            with torch.no_grad():
-                for phase in ['val', 'test']:
-                    data_loader = self.data_loader_dict[phase]
-                    total_number = len(data_loader.dataset)
-                    class_correct = self.do_eval(data_loader)
-                    for k, v in class_correct.items():
-                        class_correct[k] = float(class_correct[k]) / total_number
-                    self.logger.log_test(phase, class_correct)
-                    self.results[phase][self.current_epoch] = class_correct
+        # evaluation
+        with torch.no_grad():
+            for phase in ['val', 'test']:
+                data_loader = self.data_loader_dict[phase]
+                total_number = len(data_loader.dataset)
+                class_correct = self.do_eval(data_loader)
+                for k, v in class_correct.items():
+                    class_correct[k] = float(class_correct[k]) / total_number
+                self.logger.log_test(phase, class_correct)
+                self.results[phase][self.current_epoch] = class_correct
 
-                current_val_dict = self.results['val'][self.current_epoch]
-                current_val_acc = sum(current_val_dict.values()) / len(current_val_dict.keys())
-                if current_val_acc >= self.best_val_acc:
-                    self.best_val_acc = current_val_acc
-                    self.best_val_epoch = self.current_epoch
-                    self.logger.save_model(self.model, self.best_val_acc, 'best')
+            current_val_dict = self.results['val'][self.current_epoch]
+            current_val_acc = sum(current_val_dict.values()) / len(current_val_dict.keys())
+            if current_val_acc >= self.best_val_acc:
+                self.best_val_acc = current_val_acc
+                self.best_val_epoch = self.current_epoch
+                self.logger.save_model(self.model, self.best_val_acc, 'best')
+
+        # change train stage
+        current_class_correct = self.results[phase][self.current_epoch]
+        last_class_correct = self.results[phase][self.current_epoch - 1]
+        current_loss = 0
+        last_loss = 0
+        for k, v in current_class_correct:
+            current_loss = current_loss + current_class_correct[k]
+            last_loss = last_loss + last_class_correct[k]
+
+        if self.train_stage == 1 and (last_loss - current_loss) < self.whole_loss_threshold:
+            self.train_stage = 2
+        elif self.train_stage == 2 and (last_loss - current_loss) < self.contrast_loss_threshold:
+            self.train_stage = 3
 
     def do_eval(self, data_loader):
         correct_dict = {}
         for iter_idx, (samples, labels) in enumerate(data_loader):
             # preprocessing
             contrast_samples, contrast_labels = data_loader.dataset.get_contrast_batch()
-            samples.extend(contrast_samples)
-            labels.extend(contrast_labels)
+            torch.cat((samples, contrast_samples))
+            torch.cat((labels, contrast_labels))
 
             samples = Variable(samples.cuda())
             labels = Variable(labels.cuda())

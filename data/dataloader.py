@@ -8,20 +8,21 @@
 import os
 import random
 
+import torch
 from torch.utils.data import DataLoader
 import torch.utils.data as data
 from torchvision import transforms
 from PIL import Image
 
 
-def get_data_loader_dict(dataset_name, dataset_path, image_size, phase, batch_size, shuffle=True, num_workers=4):
+def get_data_loader_dict(dataset_name, dataset_path, image_size, batch_size, shuffle=True, num_workers=4):
     data_loader_dict = {}
     for phase in ['train', 'val', 'test']:
         if dataset_name == 'cat_dog':
             dataset = CatDogDataset(dataset_path, image_size, phase)
         else:
             dataset = None
-            
+
         assert batch_size - dataset.class_number > 0
         data_loader = DataLoader(
             dataset=dataset,
@@ -30,6 +31,8 @@ def get_data_loader_dict(dataset_name, dataset_path, image_size, phase, batch_si
             num_workers=num_workers
         )
         data_loader_dict[phase] = data_loader
+
+    print('The label dict:\n', data_loader_dict['train'].dataset.label_dict)
     return data_loader_dict
 
 
@@ -39,6 +42,7 @@ class CatDogDataset(data.Dataset):
         super(CatDogDataset, self).__init__()
 
         # image
+        self.image_size = image_size
         self.dataset_path = dataset_path
         self.image_name_list = os.listdir(dataset_path)
         assert len(self.image_name_list) > 1200
@@ -64,7 +68,6 @@ class CatDogDataset(data.Dataset):
             temp.extend(self.image_dict[name])
             self.label_dict[name] = i
         self.image_name_list = temp  # for test
-        print('The label dict:\n', self.label_dict)
 
         # data process
         self.resize = transforms.Resize([image_size, image_size])
@@ -83,7 +86,7 @@ class CatDogDataset(data.Dataset):
         sample = self.to_tensor(sample)
         sample = self.normalize(sample)
 
-        return sample, label
+        return sample, torch.tensor(label)
 
     def get_contrast_batch(self, idx_list=None):
         if idx_list is None:
@@ -91,10 +94,10 @@ class CatDogDataset(data.Dataset):
             for a_class in self.class_name:
                 idx_list.append(random.randint(0, len(self.image_dict[a_class])))
 
-        contrast_samples = []
-        contrast_labels = []
-        for idx in idx_list:
+        contrast_samples = torch.zeros((len(idx_list), 3, self.image_size, self.image_size))
+        contrast_labels = torch.zeros((len(idx_list)))
+        for i, idx in enumerate(idx_list):
             sample, label = self.__getitem__(idx)
-            contrast_samples.append(sample)
-            contrast_labels.append(label)
+            contrast_samples[i] = sample
+            contrast_labels[i] = label
         return contrast_samples, contrast_labels

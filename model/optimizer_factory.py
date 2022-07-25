@@ -9,7 +9,7 @@
 from torch import optim
 
 
-def get_optim_and_scheduler(model, optimizer_config):
+def get_optim_and_scheduler(model, lr, optimizer_config):
     params = model.parameters()
 
     if optimizer_config["optimizer_type"] == 'sgd':
@@ -17,7 +17,7 @@ def get_optim_and_scheduler(model, optimizer_config):
                               weight_decay=optimizer_config["weight_decay"],
                               momentum=optimizer_config["momentum"],
                               nesterov=optimizer_config["nesterov"],
-                              lr=optimizer_config["lr"])
+                              lr=lr)
     elif optimizer_config["optimizer_type"] == 'adam':
         optimizer = optim.Adam(params,
                                weight_decay=optimizer_config["weight_decay"],

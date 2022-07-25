@@ -12,8 +12,8 @@ import yaml
 
 import torch
 
-from tf_logger import TFLogger
-from tools import time_format
+from utils.tf_logger import TFLogger
+from utils.tools import time_format
 
 
 class Logger:
@@ -91,7 +91,7 @@ class Logger:
             print("<Losses on train> " + epoch_loss_string)
             print("<Accuracies on train> " + epoch_acc_string)
             print('Train epoch time: %s' % time_format(time() - self.last_update))
-            print('Duration time: %s' % time_format(self.start_time - time()))
+            print('Duration time: %s' % time_format(time() - self.start_time))
             print('Predict time: %s' % time_format(
                 (self.max_epochs - self.current_epoch) * (time() - self.last_update)
             ))
@@ -116,6 +116,19 @@ class Logger:
             'val_acc': val_acc,
             'model_state_dict': model.state_dict(),
         }, os.path.join(self.output_path, f'{name}.pth'))
+
+    def save_result(self, val_res=None, test_res=None, best_val_acc=None, best_val_epoch=None, name='result.json'):
+        print()
+        print('*' * 30)
+        print("Best val:\nepoch: %d, accuracy: %.2f" % (best_val_epoch, best_val_acc))
+        best_acc_dict = {
+            'best_val_epoch': best_val_epoch,
+            'best_val_acc': best_val_acc,
+            'val_res': val_res,
+            'test_res': test_res
+        }
+        with open(os.path.join(self.output_path, name), 'w', encoding='utf-8') as file:
+            json.dump(best_acc_dict, file, indent=4)
 
     @staticmethod
     def get_output_path(dataset_name, output_root_dir):
