@@ -35,20 +35,29 @@ class MLP(nn.Module):
 
 
 class DCModule(nn.Module):
-    def __init__(self, model_config):
+    def __init__(self,
+                 basic_module_in_features,
+                 basic_module_hidden_features,
+                 basic_module_hidden_layers,
+                 basic_module_out_features,
+                 middle_module_hidden_features,
+                 middle_module_hidden_layers,
+                 middle_module_out_features,
+                 senior_module_out_features
+                 ):
         super(DCModule, self).__init__()
-        self.basic_module = MLP(in_features=model_config['image_size'],
-                                hidden_features=model_config['basic_module']['hidden_features'],
-                                out_features=model_config['basic_module']['output_features'],
-                                hidden_layers=model_config['basic_module']['hidden_layers'],
+        self.basic_module = MLP(in_features=basic_module_in_features,
+                                hidden_features=basic_module_hidden_features,
+                                out_features=basic_module_out_features,
+                                hidden_layers=basic_module_hidden_layers,
                                 )
-        self.middle_module = MLP(in_features=model_config['basic_module']['output_features'],
-                                 hidden_features=model_config['middle_module']['hidden_features'],
-                                 out_features=model_config['middle_module']['output_features'],
-                                 hidden_layers=model_config['middle_module']['hidden_layers'],
+        self.middle_module = MLP(in_features=basic_module_out_features,
+                                 hidden_features=middle_module_hidden_features,
+                                 out_features=middle_module_out_features,
+                                 hidden_layers=middle_module_hidden_layers,
                                  )
-        self.senior_module = nn.Linear(in_features=model_config['middle_module']['output_features'],
-                                       out_features=model_config['senior_module']['output_features']
+        self.senior_module = nn.Linear(in_features=middle_module_out_features,
+                                       out_features=senior_module_out_features
                                        )
 
     def forward(self, input_feature):

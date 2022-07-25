@@ -1,6 +1,9 @@
-model_config:
-  image_size: !!python/object/apply:eval [ 224 * 224 * 3 ]
-
+dataset:
+  name: "cat_dog"
+  path: "/home/share/image_classification/cat_dog_recognition/train"
+  image_size: 224
+model:
+  input_features: !!python/object/apply:eval [ 224 * 224 * 3 ]
   basic_module:
     hidden_features: !!python/object/apply:eval [ 112 * 56 ]
     hidden_layers: 3
@@ -11,22 +14,34 @@ model_config:
     output_features: !!python/object/apply:eval [ 28 * 112 ]
   senior_module:
     output_features: !!python/object/apply:eval [ 112 * 112 ]
-
-basic_config:
+loss:
+  l: 0.5
+  a: 1
+  b: 1
+  g: 0.005
+train:
   batch_size: 16
   epoch: 50
-  lr: &lr 0.001
-  num_classes: 7
-
-optimizer_config:
+  lr: 0.001
+optimizer:
   # sgd, adam
-  optimizer_type: sgd
-  lr: *lr
+  optimizer_type: "sgd"
   momentum: 0.9
   weight_decay: !!python/object/apply:eval [ 5e-4 ]
   nesterov: true
-
   # step, multistep, exp
-  scheduler_type: step
+  scheduler_type: "step"
   lr_decay_step: 40
   lr_decay_rate: 0.1
+output:
+  root_path: "checkout"
+log:
+  env: "train-env-py"
+  nrow: 20
+  scale: 4
+  height: 256
+  width: 256
+  tf_logger: false
+  update_frequency: 30
+  accuracy_same_threshold: 0.5
+  accuracy_different_threshold: -0.5

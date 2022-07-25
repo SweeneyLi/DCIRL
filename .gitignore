@@ -1,5 +1,6 @@
 # temp files
 output/
+temp/
 # pycharm
 .idea/
 # Byte-compiled / optimized / DLL files

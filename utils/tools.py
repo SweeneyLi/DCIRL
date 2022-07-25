@@ -14,3 +14,9 @@ def read_config(yaml_config_path):
     with open(yaml_config_path, 'r') as f:
         yaml_config = yaml.load(f.read(), Loader=yaml.Loader)
     return yaml_config
+
+
+def time_format(seconds):
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return '%02d:%02d:%02d' % (h, m, s)
