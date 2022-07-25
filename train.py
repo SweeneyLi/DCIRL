@@ -124,7 +124,6 @@ class Trainer:
     def do_training(self):
         self.logger.save_config()
 
-        self.results = {"val": None, "test": None}
         self.best_val_acc = 0
         self.best_val_epoch = 0
 
@@ -231,7 +230,7 @@ class Trainer:
         last_class_correct = self.results[phase][self.current_epoch - 1]
         current_loss = 0
         last_loss = 0
-        for k, v in current_class_correct:
+        for k, v in current_class_correct.items():
             current_loss = current_loss + current_class_correct[k]
             last_loss = last_loss + last_class_correct[k]
 

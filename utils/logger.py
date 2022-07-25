@@ -82,7 +82,7 @@ class Logger:
                 for k, v in correct_dict.items():
                     self.tf_logger.scalar_summary("train_step/loss_%s" % k, v, self.current_iter)
 
-        if (iter_idx + 1) % max_iter == 0:
+        if iter_idx % max_iter == 0:
             epoch_loss_string = ", ".join(["%s : %.3f" % (k, v / max_iter) for k, v in self.epoch_loss.items()])
             epoch_acc_string = ", ".join(
                 ["%s : %.2f" % (k, 100 * (v / self.total_number)) for k, v in self.epoch_stats.items()])

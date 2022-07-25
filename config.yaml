@@ -23,11 +23,11 @@ loss:
     independent_coefficient: 0.5
   threshold:
     whole_loss_threshold: 0.001
-    contrast_loss_threshold: 0.001
+    contrast_loss_threshold: 0.0001
     independent_loss_threshold: 0.001
 train:
-  batch_size: 10
-  epoch: 50
+  batch_size: 100
+  epoch: 500
   lr: 0.001
 optimizer:
   # sgd, adam
