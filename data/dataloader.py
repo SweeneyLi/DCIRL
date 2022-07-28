@@ -14,6 +14,7 @@ import torch.utils.data as data
 from torchvision import transforms
 from PIL import Image
 
+random.seed(1)
 
 def get_data_loader_dict(dataset_name, dataset_path, image_size, batch_size, shuffle=True, num_workers=4):
     data_loader_dict = {}
@@ -45,7 +46,7 @@ class CatDogDataset(data.Dataset):
         self.image_size = image_size
         self.dataset_path = dataset_path
         self.image_name_list = os.listdir(dataset_path)
-        assert len(self.image_name_list) > 1200
+        assert len(self.image_name_list) > 1400
 
         self.class_name = ['cat', 'dog']
         self.class_number = len(self.class_name)

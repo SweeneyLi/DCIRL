@@ -19,10 +19,7 @@ from model.optimizer_factory import get_optim_and_scheduler
 from utils.tools import read_config, str_to_tuple
 from utils.logger import Logger
 from utils.visualizaiton import Visualization
-
-warnings.filterwarnings("ignore")
-simplefilter(action='ignore', category=FutureWarning)
-
+import pdb
 # load config
 config_path = 'config.yaml'
 config = read_config(config_path)
@@ -58,10 +55,9 @@ class Trainer:
         ).cuda()
         self.model = torch.nn.DataParallel(self.model)
 
+        print('model info: ')
         print(self.model)
-        for name, parameters in self.model.named_parameters():
-            print(name, ':', parameters.size())
-        print('# generator parameters:', sum(param.numel() for param in self.model.parameters()))
+        print('parameters: %.2f M' % (sum(param.numel() for param in self.model.parameters()) / (1024 * 1024)))
 
         # loss
         self.loss_function = DCLoss(
@@ -72,8 +68,7 @@ class Trainer:
             common_coefficient=config['loss']['coefficient']['common_coefficient'],
             different_coefficient=config['loss']['coefficient']['different_coefficient'],
             whole_different_coefficient=config['loss']['coefficient']['whole_different_coefficient'],
-            accuracy_same_threshold=config['log']['accuracy_same_threshold'],
-            accuracy_different_threshold=config['log']['accuracy_different_threshold']
+            accuracy_threshold=config['log']['accuracy_threshold']
         )
         self.train_stage = 1
         self.whole_loss_threshold = config['loss']['threshold']['whole_loss_threshold']
@@ -106,10 +101,10 @@ class Trainer:
         self.global_iter = 1
         self.best_val_acc = 0
         self.best_val_epoch = 0
-        self.results = {'val': [{} for _ in range(self.epochs)], 'test': [{} for _ in range(self.epochs)]}
+        self.results = {'val': [{} for _ in range(self.epochs + 1)], 'test': [{} for _ in range(self.epochs + 1)]}
         # sentry
-        self.results['val'][0] = {'same': 10, 'different': 10}
-        self.results['test'][0] = {'same': 10, 'different': 10}
+        self.results['val'][0] = {'same': 100, 'different': 100}
+        self.results['test'][0] = {'same': 100, 'different': 100}
 
         # visual
         self.visualize = Visualization(
@@ -130,12 +125,17 @@ class Trainer:
         for self.current_epoch in range(1, self.epochs + 1):
             self.scheduler.step()
 
-            self.logger.new_epoch([group["lr"] for group in self.optimizer.param_groups])
+            self.logger.new_epoch(self.current_epoch, [group["lr"] for group in self.optimizer.param_groups])
             self._do_train_epoch()
-            self.logger.finish_epoch()
+            self.logger.finish_epoch(self.current_epoch)
 
         val_res = self.results['val']
         test_res = self.results['test']
+        # remove sentry
+        val_res.pop(0)
+        test_res.pop(0)
+        self.best_val_epoch = self.best_val_epoch - 1
+
         self.logger.save_result(val_res, test_res, self.best_val_acc, self.best_val_epoch)
 
     def _do_train_epoch(self):
@@ -144,6 +144,7 @@ class Trainer:
         max_iter = len(train_data_loader)
 
         for iter_idx, (samples, labels) in enumerate(train_data_loader):
+            iter_idx = iter_idx + 1
             # preprocessing
             contrast_samples, contrast_labels = train_data_loader.dataset.get_contrast_batch()
             torch.cat((samples, contrast_samples))
@@ -169,12 +170,15 @@ class Trainer:
             correct_dict['same'] = correct_number_same
             correct_dict['different'] = correct_number_different
 
-            contrast_loss = self.loss_function.get_contrast_loss(middle_feature,
-                                                                 labels) if self.train_stage > 1 else torch.tensor(0)
+            contrast_loss, contrast_common_loss, contrast_different_loss = self.loss_function.get_contrast_loss(
+                middle_feature, labels) if self.train_stage > 1 else (
+                torch.tensor(0.0), torch.tensor(0.0), torch.tensor(0.0))
             loss_dict['contrast_loss'] = contrast_loss
+            loss_dict['contrast_same_loss'] = contrast_common_loss
+            loss_dict['contrast_different_loss'] = contrast_different_loss
 
             independent_loss = self.loss_function.get_independent_loss(
-                basic_feature) if self.train_stage > 2 else torch.tensor(0)
+                basic_feature, labels) if self.train_stage > 2 else torch.tensor(0.0)
             loss_dict['independent_loss'] = independent_loss
 
             total_loss = whole_loss + contrast_loss + independent_loss
@@ -190,6 +194,8 @@ class Trainer:
                 samples.cpu().detach(),
                 whole_loss.item(),
                 contrast_loss.item(),
+                contrast_common_loss.item(),
+                contrast_different_loss.item(),
                 independent_loss.item(),
                 total_loss.item(),
                 correct_dict['same'] / batch_number,
@@ -213,6 +219,7 @@ class Trainer:
                 data_loader = self.data_loader_dict[phase]
                 total_number = len(data_loader.dataset)
                 class_correct = self.do_eval(data_loader)
+
                 for k, v in class_correct.items():
                     class_correct[k] = float(class_correct[k]) / total_number
                 self.logger.log_test(phase, class_correct)
@@ -226,8 +233,8 @@ class Trainer:
                 self.logger.save_model(self.model, self.best_val_acc, 'best')
 
         # change train stage
-        current_class_correct = self.results[phase][self.current_epoch]
-        last_class_correct = self.results[phase][self.current_epoch - 1]
+        current_class_correct = self.results['test'][self.current_epoch]
+        last_class_correct = self.results['test'][self.current_epoch - 1]
         current_loss = 0
         last_loss = 0
         for k, v in current_class_correct.items():
@@ -240,7 +247,7 @@ class Trainer:
             self.train_stage = 3
 
     def do_eval(self, data_loader):
-        correct_dict = {}
+        correct_dict = {'same': 0, 'different': 0}
         for iter_idx, (samples, labels) in enumerate(data_loader):
             # preprocessing
             contrast_samples, contrast_labels = data_loader.dataset.get_contrast_batch()
@@ -255,8 +262,8 @@ class Trainer:
             whole_loss, (correct_number_same, correct_number_different,
                          batch_number) = self.loss_function.get_whole_loss_and_correct_number(
                 senior_feature, labels)
-            correct_dict['same'] = correct_number_same
-            correct_dict['different'] = correct_number_different
+            correct_dict['same'] = correct_dict['same'] + correct_number_same
+            correct_dict['different'] = correct_dict['same'] + correct_number_different
         return correct_dict
 
 

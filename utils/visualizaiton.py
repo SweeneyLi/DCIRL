@@ -19,31 +19,47 @@ class Visualization(object):
             np.zeros((self.batch_size, 3, int(self.height / self.scale), int(self.width / self.scale))), nrow=self.nrow,
             opts={'title': 'Samples Domain'})
         self.train_loss_win = self.viz.line(
-            X=np.column_stack(([0], [0], [0], [0], [0], [0])),
-            Y=np.column_stack(([0], [0], [0], [0], [0], [0])),
+            X=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0])),
+            Y=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0])),
             opts={'title': 'train curve',
                   'xlabel': 'iteration',
                   'ylabel': 'loss',
-                  'legend': ['whole_loss', 'contrast_loss', 'independent_loss', 'total_loss',
+                  'legend': ['whole_loss',
+                             'contrast_loss', 'contrast_common_loss', 'contrast_different_loss',
+                             'independent_loss', 'total_loss',
                              'same_accuracy', 'different_accuracy'],
                   'width': 1024,
                   'height': 256,
                   'showlegend': True})
         self.downsample = nn.Upsample(scale_factor=1. / self.scale, mode='bilinear', align_corners=True)
 
-    def run(self, samples, whole_loss, contrast_loss, independent_loss, total_loss,
+    def run(self, samples, whole_loss, contrast_loss, contrast_common_loss, contrast_different_loss, independent_loss,
+            total_loss,
             same_accuracy, different_accuracy, iter):
 
-        self.viz.line(X=np.column_stack(([iter], [iter], [iter], [iter], [iter], [iter])),
-                      Y=np.column_stack((whole_loss, contrast_loss, independent_loss,
-                                         total_loss, same_accuracy, different_accuracy)),
+        # print('test', np.column_stack(([iter], [iter], [iter], [iter], [iter], [iter])),
+        #       np.column_stack((whole_loss, contrast_loss, independent_loss,
+        #                        total_loss, same_accuracy, different_accuracy)))
+        self.viz.line(X=np.column_stack(([iter], [iter], [iter], [iter], [iter], [iter], [iter], [iter])),
+                      Y=np.column_stack(
+                          ([whole_loss],
+                           [contrast_loss], [contrast_common_loss], [contrast_different_loss],
+                           [independent_loss],
+                           [total_loss],
+                           [same_accuracy], [different_accuracy])),
                       win=self.train_loss_win,
                       update='append')
-        post_samples = self.post_processing(samples)
-        self.viz.images(post_samples.numpy(),
-                        nrow=self.nrow,
-                        win=self.sample_win,
-                        opts={'title': 'Samples Domain'})
+
+        # self.viz.line(X=np.column_stack((iter, iter, iter, iter, iter, iter)),
+        #               Y=np.column_stack((whole_loss, contrast_loss, independent_loss,
+        #                                  total_loss, same_accuracy, different_accuracy)),
+        #               win=self.train_loss_win,
+        #               update='append')
+        # post_samples = self.post_processing(samples)
+        # self.viz.images(post_samples.numpy(),
+        #                 nrow=self.nrow,
+        #                 win=self.sample_win,
+        #                 opts={'title': 'Samples Domain'})
 
     def post_processing(self, image):
         channel = image.shape[1]

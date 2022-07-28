@@ -7,6 +7,7 @@
 """
 import yaml
 import os
+import datetime
 
 
 def read_config(yaml_config_path):
@@ -26,3 +27,7 @@ def str_to_tuple(input_string):
     if type(input_string) != str:
         return input_string
     return tuple([int(i) for i in input_string.lstrip('(').rstrip(')').split(',')])
+
+
+def get_current_time_string(hours=8, time_format='%m%d_%H%M'):
+    return (datetime.datetime.now() + datetime.timedelta(hours=hours)).strftime(time_format)

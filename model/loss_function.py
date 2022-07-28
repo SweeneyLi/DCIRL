@@ -15,7 +15,7 @@ class DCLoss:
                  off_diag_coefficient,
                  independent_coefficient, common_coefficient,
                  different_coefficient,
-                 accuracy_same_threshold, accuracy_different_threshold):
+                 accuracy_threshold):
         self.whole_different_coefficient = whole_different_coefficient
         self.off_diag_coefficient = off_diag_coefficient
         self.common_coefficient = common_coefficient
@@ -23,8 +23,7 @@ class DCLoss:
         self.independent_coefficient = independent_coefficient
         self.batch_size = batch_size
         self.class_num = class_num
-        self.accuracy_same_threshold = accuracy_same_threshold
-        self.accuracy_different_threshold = accuracy_different_threshold
+        self.accuracy_threshold = accuracy_threshold
 
     def get_different_labels(self, label):
         return (label + randint(1, self.class_num - 1)) % self.class_num
@@ -44,6 +43,10 @@ class DCLoss:
         return origin_features, same_features, different_features
 
     def get_whole_loss_and_correct_number(self, features, labels):
+        # for test
+        # return torch.norm(features, p=1, dim=1).mean(), (0, 0, 50) # 30.5463 3.5035e-03 -0.0567
+        # return features.sum() / features.size(0), (0, 0, 50) # 0.6623  1.0901e-03   -0.0130
+
         # split
         feature_origin, feature_same, feature_different = self.get_origin_same_and_different_features(features, labels)
 
@@ -59,9 +62,9 @@ class DCLoss:
 
         # get correct number
         batch_number = feature_origin.size(0)
-        correct_number_same = cosine_similarity_same.gt(self.accuracy_same_threshold).sum().item()
+        correct_number_same = cosine_similarity_same.gt(self.accuracy_threshold).sum().item()
         correct_number_different = cosine_similarity_different.lt(
-            self.accuracy_different_threshold).sum().item()
+            self.accuracy_threshold).sum().item()
 
         # get whole loss
         whole_loss_same = 1 - cosine_similarity_same.mean()
@@ -72,9 +75,9 @@ class DCLoss:
 
     def get_contrast_loss(self, features, labels):
         feature_origin, feature_same, feature_different = self.get_origin_same_and_different_features(features, labels)
-        return self.common_coefficient * self.get_common_loss(feature_origin,
-                                                              feature_same) + self.different_coefficient * self.get_different_loss(
-            feature_origin, feature_different)
+        contrast_common_loss = self.get_common_loss(feature_origin, feature_same)
+        contrast_different_loss = self.get_different_loss(feature_origin, feature_different)
+        return self.common_coefficient * contrast_common_loss + self.different_coefficient * contrast_different_loss, contrast_common_loss, contrast_different_loss
 
     def get_common_loss(self, feature_origin, feature_same):
         cross_correlation_matrix_same = self.get_cross_correlation_matrix(feature_origin, feature_same)
@@ -98,13 +101,20 @@ class DCLoss:
 
         return on_diag_loss + self.off_diag_coefficient * off_diag_loss
 
-    def get_independent_loss(self, features):
-        cross_correlation_matrix = self.get_cross_correlation_matrix(features, features)
+    def get_independent_loss(self, features, labels):
+        feature_origin, feature_same, feature_different = self.get_origin_same_and_different_features(features, labels)
 
-        temp = torch.diagonal(cross_correlation_matrix, dim1=1, dim2=2).pow_(2).sum()
-        off_diag_loss = cross_correlation_matrix.pow_(2).sum() - temp
+        cross_correlation_matrix_same = self.get_cross_correlation_matrix(feature_origin, feature_same)
+        cross_correlation_matrix_different = self.get_cross_correlation_matrix(feature_origin, feature_different)
 
-        return self.independent_coefficient * off_diag_loss
+        temp = torch.diagonal(cross_correlation_matrix_different, dim1=1, dim2=2).pow_(2)
+        off_diag_number = self.get_off_diag_matrix_number(cross_correlation_matrix_different.size(), temp.size())
+        off_diag_loss_1 = (cross_correlation_matrix_different.pow_(2).sum() - temp.sum()) / off_diag_number
+
+        temp = torch.diagonal(cross_correlation_matrix_same, dim1=1, dim2=2).pow_(2)
+        off_diag_loss_2 = (cross_correlation_matrix_same.pow_(2).sum() - temp.sum()) / off_diag_number
+
+        return (off_diag_loss_1 + off_diag_loss_2) / 2
 
     @staticmethod
     def get_off_diag_matrix_number(matrix_size, on_diag_size):
