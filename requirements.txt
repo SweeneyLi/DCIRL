@@ -1,5 +1,3 @@
 numpy
-pandas
-jupyter
 tqdm
 pyyaml
