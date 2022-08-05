@@ -15,51 +15,64 @@ class Visualization(object):
         self.height = height
         self.width = width
 
-        self.sample_win = self.viz.images(
-            np.zeros((self.batch_size, 3, int(self.height / self.scale), int(self.width / self.scale))), nrow=self.nrow,
-            opts={'title': 'Samples Domain'})
-        self.train_loss_win = self.viz.line(
-            X=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0])),
-            Y=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0])),
-            opts={'title': 'train curve',
+        win_tensor = np.zeros((self.batch_size, 3, int(self.height / self.scale), int(self.width / self.scale)))
+
+        self.eval_win = self.viz.line(
+            X=np.column_stack(([0], [0])),
+            Y=np.column_stack(([0], [0])),
+            opts={'title': 'accuracy curve',
                   'xlabel': 'iteration',
                   'ylabel': 'loss',
-                  'legend': ['whole_loss',
-                             'contrast_loss', 'contrast_common_loss', 'contrast_different_loss',
-                             'independent_loss', 'total_loss',
-                             'same_accuracy', 'different_accuracy'],
-                  'width': 1024,
-                  'height': 256,
+                  'legend': ['val_accuracy', 'test_accuracy'],
+                  'width': 1500,
+                  'height': 200,
                   'showlegend': True})
         self.downsample = nn.Upsample(scale_factor=1. / self.scale, mode='bilinear', align_corners=True)
 
-    def run(self, samples, whole_loss, contrast_loss, contrast_common_loss, contrast_different_loss, independent_loss,
-            total_loss,
-            same_accuracy, different_accuracy, iter):
+        self.train_loss_win = self.viz.line(
+            X=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0], [0])),
+            Y=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0], [0])),
+            opts={'title': 'train curve',
+                  'xlabel': 'iteration',
+                  'ylabel': 'loss',
+                  'legend': ['accuracy', 'total_loss', 'classifier_loss',
+                             'whole_loss', 'whole_loss_same', 'whole_loss_different',
+                             'contrast_loss', 'contrast_common_loss', 'contrast_different_loss'],
+                  'width': 1500,
+                  'height': 500,
+                  'showlegend': True})
+        self.origin_sample_win = self.viz.images(
+            tensor=win_tensor, nrow=self.nrow, opts={'title': 'Origin Samples Domain'}
+        )
+        self.same_sample_win = self.viz.images(
+            tensor=win_tensor, nrow=self.nrow, opts={'title': 'Same Samples Domain'}
+        )
+        self.different_sample_win = self.viz.images(
+            tensor=win_tensor, nrow=self.nrow, opts={'title': 'Different Samples Domain'}
+        )
 
-        # print('test', np.column_stack(([iter], [iter], [iter], [iter], [iter], [iter])),
-        #       np.column_stack((whole_loss, contrast_loss, independent_loss,
-        #                        total_loss, same_accuracy, different_accuracy)))
-        self.viz.line(X=np.column_stack(([iter], [iter], [iter], [iter], [iter], [iter], [iter], [iter])),
-                      Y=np.column_stack(
-                          ([whole_loss],
-                           [contrast_loss], [contrast_common_loss], [contrast_different_loss],
-                           [independent_loss],
-                           [total_loss],
-                           [same_accuracy], [different_accuracy])),
-                      win=self.train_loss_win,
-                      update='append')
+    def visual_train(self, origin_samples, same_samples, different_samples, accuracy, total_loss, classifier_loss,
+                     whole_loss,
+                     whole_loss_same, whole_loss_different,
+                     contrast_loss, contrast_common_loss, contrast_different_loss, iter):
+        X = np.column_stack(([iter], [iter], [iter], [iter], [iter], [iter], [iter], [iter], [iter]))
+        Y = np.column_stack(
+            ([accuracy], [total_loss], [classifier_loss],
+             [whole_loss], [whole_loss_same], [whole_loss_different],
+             [contrast_loss], [contrast_common_loss], [contrast_different_loss]))
+        self.viz.line(X=X, Y=Y, win=self.train_loss_win, update='append')
 
-        # self.viz.line(X=np.column_stack((iter, iter, iter, iter, iter, iter)),
-        #               Y=np.column_stack((whole_loss, contrast_loss, independent_loss,
-        #                                  total_loss, same_accuracy, different_accuracy)),
-        #               win=self.train_loss_win,
-        #               update='append')
-        # post_samples = self.post_processing(samples)
-        # self.viz.images(post_samples.numpy(),
-        #                 nrow=self.nrow,
-        #                 win=self.sample_win,
-        #                 opts={'title': 'Samples Domain'})
+        self.viz.images(self.post_processing(origin_samples).numpy(), nrow=self.nrow,
+                        win=self.origin_sample_win)
+        self.viz.images(self.post_processing(same_samples).numpy(), nrow=self.nrow,
+                        win=self.same_sample_win)
+        self.viz.images(self.post_processing(different_samples).numpy(), nrow=self.nrow,
+                        win=self.different_sample_win)
+
+    def visual_eval(self, val_accuracy, test_accuracy, iter):
+        X = np.column_stack(([iter], [iter]))
+        Y = np.column_stack(([val_accuracy], [test_accuracy]))
+        self.viz.line(X=X, Y=Y, win=self.eval_win, update='append')
 
     def post_processing(self, image):
         channel = image.shape[1]

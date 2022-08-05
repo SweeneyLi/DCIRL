@@ -5,9 +5,10 @@
 @Date  :2022/7/21 5:36 PM
 @Desc  :
 """
+
 from torch import nn
-import torch.nn.functional as F
-import numpy
+
+from model.model_factory import get_backbone
 
 
 def tuple_multiplication(input_tuple):
@@ -20,69 +21,47 @@ def tuple_multiplication(input_tuple):
     return result
 
 
-class MLP(nn.Module):
-    def __init__(self, in_features, hidden_features, out_features, hidden_layers=1):
-        super(MLP, self).__init__()
-        in_features = tuple_multiplication(in_features)
-        hidden_features = tuple_multiplication(hidden_features)
-        out_features = tuple_multiplication(out_features)
-        self.layer1 = nn.Linear(in_features, hidden_features)
-        self.layer2 = self._make_layer(hidden_features, hidden_layers)
-        self.layer3 = nn.Linear(hidden_features, out_features)
-
-    @staticmethod
-    def _make_layer(hidden_features, hidden_layers):
-        layers = nn.Sequential()
-        layers.add_module("hidden_relu_0", nn.ReLU())
-
-        for i in range(hidden_layers):
-            layers.add_module("hidden_linear_%d" % (i + 1), nn.Linear(hidden_features, hidden_features))
-            layers.add_module("hidden_relu_%d" % (i + 1), nn.ReLU())
-        return layers
-
-    def forward(self, x):
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        return x
-
-
 class DCModule(nn.Module):
     def __init__(self,
-                 basic_module_in_features,
-                 basic_module_hidden_features,
-                 basic_module_hidden_layers,
-                 basic_module_out_features,
-                 middle_module_hidden_features,
-                 middle_module_hidden_layers,
-                 middle_module_out_features,
-                 senior_module_out_features
+                 backbone_pretrained,
+                 basic_module_name,
+                 basic_module_out_dim,
+                 middle_module_features_list,
+                 senior_module_features_list,
+                 class_num
                  ):
         super(DCModule, self).__init__()
 
-        self.basic_module_out_features = basic_module_out_features
-        self.middle_module_out_features = middle_module_out_features
-        self.senior_module_out_features = senior_module_out_features
+        self.basic_module = get_backbone(basic_module_name, backbone_pretrained)
 
-        self.basic_module = MLP(in_features=basic_module_in_features,
-                                hidden_features=basic_module_hidden_features,
-                                out_features=basic_module_out_features,
-                                hidden_layers=basic_module_hidden_layers,
-                                )
-        self.middle_module = MLP(in_features=basic_module_out_features,
-                                 hidden_features=middle_module_hidden_features,
-                                 out_features=middle_module_out_features,
-                                 hidden_layers=middle_module_hidden_layers,
-                                 )
-        self.senior_module = nn.Linear(in_features=tuple_multiplication(middle_module_out_features),
-                                       out_features=tuple_multiplication(senior_module_out_features)
-                                       )
+        self.middle_module = self._make_layers(
+            list(map(lambda x: tuple_multiplication(x), [basic_module_out_dim] + middle_module_features_list)),
+            bn=False, no_linear=True
+        )
+        self.middle_module_out_dim = middle_module_features_list[-1]
+
+        self.senior_module = self._make_layers(
+            list(map(lambda x: tuple_multiplication(x), [self.middle_module_out_dim] + senior_module_features_list)),
+            bn=True, no_linear=False
+        )
+
+        self.fc = nn.Linear(senior_module_features_list[-1], class_num)
 
     def forward(self, input_feature):
-        input_feature = input_feature.reshape(input_feature.size(0), -1)
+        # input_feature = input_feature.reshape(input_feature.size(0), -1)
         basic_feature = self.basic_module(input_feature)
         middle_feature = self.middle_module(basic_feature)
         senior_feature = self.senior_module(middle_feature)
-        return basic_feature.reshape(-1, *self.basic_module_out_features), \
-               middle_feature.reshape(-1, *self.middle_module_out_features), \
-               senior_feature
+        classifier = self.fc(senior_feature)
+        return middle_feature.reshape(-1, *self.middle_module_out_dim), senior_feature, classifier
+
+    @staticmethod
+    def _make_layers(layer_feature_list, bn=True, no_linear=True):
+        layers = []
+        for i in range(len(layer_feature_list) - 1):
+            layers.append(nn.Linear(layer_feature_list[i], layer_feature_list[i + 1], bias=False))
+            if bn:
+                layers.append(nn.BatchNorm1d(layer_feature_list[i + 1]))
+            if no_linear:
+                layers.append(nn.ReLU(inplace=True))
+        return nn.Sequential(*layers)

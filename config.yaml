@@ -1,34 +1,32 @@
 dataset:
-  name: "cat_dog"
-  path: "/home/share/image_classification/cat_dog_recognition/train"
-  image_size: 224
+  name: "miniImageNet"
+  file: "train"
+  path: "/home/share/image_classification/mini-imagenet"
+  image_size: (224, 224, 3)
 model:
-  input_features: (224, 224, 3)
+  load_state_dict:
+    path: '/home/lixy/DCIRL/checkout/miniImageNet/0805_1041/7epoch_92.29%acc.pth'
+    start_stage: 3
   basic_module:
-    hidden_features: (28, 28)
-    hidden_layers: 1
-    out_features: (7, 28)
+    name: 'resnet18'
+    pretrained: true
+    out_dim: 512
   middle_module:
-    hidden_features: (14, 28)
-    hidden_layers: 1
-    out_features: (14, 14)
+    features_list:
+      - (64, 16)
   senior_module:
-    out_features: (784) # 28 * 28
+    features_list:
+      - 2048
 loss:
   coefficient:
-    whole_different_coefficient: 2
+    whole_different_coefficient: 1
     common_coefficient: 1
-    different_coefficient: 0.5
-    independent_coefficient: 0.05
-    off_diag_coefficient: 0.05
-  threshold:
-    whole_loss_threshold: 0.0001
-    contrast_loss_threshold: 0.0001
-    independent_loss_threshold: 0.0001
+    different_coefficient: 1
+    off_diag_coefficient: 0.01
 train:
   batch_size: 200
-  epoch: 100
-  lr: 0.005
+  epoch: 80
+  lr: 0.0005
 optimizer:
   # sgd, adam
   optimizer_type: "sgd"
@@ -37,16 +35,16 @@ optimizer:
   nesterov: true
   # step, multistep, exp
   scheduler_type: "step"
-  lr_decay_step: 50
+  lr_decay_step: 5
   lr_decay_rate: 0.1
 output:
   root_path: "/home/lixy/DCIRL/checkout"
+  min_save_epoch: 1
 log:
   env: "train-env-py"
-  nrow: 20
-  scale: 4
+  nrow: 1
+  scale: 3
   height: 256
   width: 256
-  tf_logger: false
   update_frequency: 10
-  accuracy_threshold: 0.5
+

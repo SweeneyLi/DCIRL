@@ -10,18 +10,20 @@ import os
 import pytest
 import random
 import logging
+import time
+from visdom import Visdom
+import numpy as np
 
-logging.basicConfig(level=logging.DEBUG,  # 控制台打印的日志级别
-                    filename='new.log',
-                    filemode='a',  # 模式，有w和a，w就是写模式，每次都会重新写日志，覆盖之前的日志, a是追加模式，默认如果不写的话，就是追加模式
-                    format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s'  # 日志格式
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
+
+logging.basicConfig(filename='test.log',
+                    filemode='w',
+                    level=logging.DEBUG,
+                    format=LOG_FORMAT,
+                    datefmt=DATE_FORMAT
                     )
-logging.debug('debug')
-
-
-# random.seed(1)
-
-# print(os.getcwd())
-# a = [1,2,3,4,5,6]
-# random.shuffle(a)
-# print(a)
+a = {'last fc grad': ([0.0009, 0.0012, -0.0003]), 'senior module linear': ([4.4867e-05, 6.8537e-05, -1.0721e-03]),
+     'middle module linear': ([-6.2061e-05, 1.1691e-04, -1.2964e-04]),
+     'basic module conv2': ([-0.0006, -0.0007, -0.0005]), 'basic module conv1': ([-0.0135, -0.0093, -0.0106])}
+logging.debug('{gradient info}\n%s' % "\n".join(["%32s: %s" % (k, v) for k, v in a.items()]))
