@@ -22,9 +22,9 @@ class Visualization(object):
             Y=np.column_stack(([0], [0])),
             opts={'title': 'accuracy curve',
                   'xlabel': 'iteration',
-                  'ylabel': 'loss',
+                  'ylabel': 'accuracy',
                   'legend': ['val_accuracy', 'test_accuracy'],
-                  'width': 1500,
+                  'width': 1200,
                   'height': 200,
                   'showlegend': True})
         self.downsample = nn.Upsample(scale_factor=1. / self.scale, mode='bilinear', align_corners=True)
@@ -37,8 +37,8 @@ class Visualization(object):
                   'ylabel': 'loss',
                   'legend': ['accuracy', 'total_loss', 'classifier_loss',
                              'whole_loss', 'whole_loss_same', 'whole_loss_different',
-                             'contrast_loss', 'contrast_common_loss', 'contrast_different_loss'],
-                  'width': 1500,
+                             'contrast_loss', 'contrast_loss_common', 'contrast_loss_different'],
+                  'width': 1200,
                   'height': 500,
                   'showlegend': True})
         self.origin_sample_win = self.viz.images(
@@ -54,12 +54,12 @@ class Visualization(object):
     def visual_train(self, origin_samples, same_samples, different_samples, accuracy, total_loss, classifier_loss,
                      whole_loss,
                      whole_loss_same, whole_loss_different,
-                     contrast_loss, contrast_common_loss, contrast_different_loss, iter):
+                     contrast_loss, contrast_loss_same, contrast_loss_different, iter):
         X = np.column_stack(([iter], [iter], [iter], [iter], [iter], [iter], [iter], [iter], [iter]))
         Y = np.column_stack(
             ([accuracy], [total_loss], [classifier_loss],
              [whole_loss], [whole_loss_same], [whole_loss_different],
-             [contrast_loss], [contrast_common_loss], [contrast_different_loss]))
+             [contrast_loss], [contrast_loss_same], [contrast_loss_different]))
         self.viz.line(X=X, Y=Y, win=self.train_loss_win, update='append')
 
         self.viz.images(self.post_processing(origin_samples).numpy(), nrow=self.nrow,

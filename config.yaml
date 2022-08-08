@@ -5,8 +5,12 @@ dataset:
   image_size: (224, 224, 3)
 model:
   load_state_dict:
-    path: '/home/lixy/DCIRL/checkout/miniImageNet/0805_1041/7epoch_92.29%acc.pth'
+#    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/16epoch_92.99%acc.pth'
+#    start_stage: 2
+#    start_lr: 0.01
+    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
     start_stage: 3
+    start_lr: 0.0005
   basic_module:
     name: 'resnet18'
     pretrained: true
@@ -20,13 +24,14 @@ model:
 loss:
   coefficient:
     whole_different_coefficient: 1
-    common_coefficient: 1
+    common_coefficient: 2
     different_coefficient: 1
-    off_diag_coefficient: 0.01
+    off_diag_coefficient: 0.005
+  stage_epoch_threshold: 8
 train:
   batch_size: 200
-  epoch: 80
-  lr: 0.0005
+  epoch: 200
+  lr: 0.01
 optimizer:
   # sgd, adam
   optimizer_type: "sgd"
@@ -35,8 +40,8 @@ optimizer:
   nesterov: true
   # step, multistep, exp
   scheduler_type: "step"
-  lr_decay_step: 5
-  lr_decay_rate: 0.1
+  lr_decay_step: 20
+  lr_decay_rate: 0.5
 output:
   root_path: "/home/lixy/DCIRL/checkout"
   min_save_epoch: 1

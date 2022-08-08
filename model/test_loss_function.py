@@ -5,13 +5,16 @@
 @Date  :2022/7/24 3:48 PM
 @Desc  :
 """
+import os
 import torch
 
 from model.loss_function import DCLoss
 
-dc_loss = DCLoss(batch_size=5, class_num=2, off_diag_coefficient=0.005, independent_coefficient=1, common_coefficient=1,
-                 different_coefficient=1, whole_different_coefficient=1, accuracy_same_threshold=0.8,
-                 accuracy_different_threshold=0.2)
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+dc_loss = DCLoss(batch_size=5, class_num=2, off_diag_coefficient=0.005, common_coefficient=1,
+                 different_coefficient=1, whole_different_coefficient=1)
 
 
 def prepare_data():
@@ -42,23 +45,13 @@ def prepare_data():
         [[0.4, 0.5, 0.6], [0.6, 0.5, 0.4]],
         [[0.5, 0.6, 0.7], [0.5, 0.4, 0.3]],
     ]).float()
-    return batch_split_features, label, feature_origin, feature_same, feature_different
+    return batch_split_features.cuda(), label.cuda(), feature_origin.cuda(), feature_same.cuda(), feature_different.cuda()
 
 
 class TestDCLoss:
 
     def setup_class(self):
         self.batch_split_features, self.label, self.feature_origin, self.feature_same, self.feature_different = prepare_data()
-
-    def test_get_different_labels(self):
-        for i in range(1, 100):
-            assert i != dc_loss.get_different_labels(i)
-
-    def test_get_origin_same_and_different_features(self):
-        f_o, f_s, f_d = dc_loss.get_origin_same_and_different_features(self.batch_split_features, self.label)
-        assert f_o.equal(self.feature_origin)
-        assert f_s.equal(self.feature_same)
-        assert f_d.equal(self.feature_different)
 
     # def test_get_whole_loss_and_correct_number(self):
     #     assert False
@@ -72,14 +65,19 @@ class TestDCLoss:
     # def test_get_different_loss(self):
     #     assert False
     #
-    # def test_get_independent_loss(self):
-    #     assert False
+    def test_get_off_diagonal(self):
+        matrix = torch.arange(2 * 3 * 3).reshape(2, 3, 3)
+        expected_value = torch.tensor([1, 2, 3, 5, 6, 7, 10, 11, 12, 14, 15, 16])
+
+        result = dc_loss.get_off_diagonal(matrix)
+
+        assert result.equal(expected_value)
 
     def test_get_cross_correlation_matrix(self):
         # f: 3 * (2 * 3)
         c_m = dc_loss.get_cross_correlation_matrix(self.feature_origin, self.feature_same)
 
-        expect_value = torch.zeros((3, 2, 2), dtype=float)
+        expect_value = torch.zeros((3, 2, 2), dtype=float).cuda()
         for i in range(3):  # batch
             feature_a = self.feature_origin[i]  # 2 * 3
             feature_b = self.feature_same[i]  # 2 * 3
