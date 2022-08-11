@@ -32,7 +32,7 @@ def get_data_loader_dict(dataset_file, dataset_name, dataset_path, image_size, b
         data_loader = DataLoader(
             dataset=dataset,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=shuffle,
             num_workers=num_workers
         )
         data_loader_dict[phase] = data_loader

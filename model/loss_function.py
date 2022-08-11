@@ -38,7 +38,7 @@ class DCLoss:
 
         # get whole loss
         whole_loss_same = 1 - cosine_similarity_same.mean()
-        whole_loss_different = cosine_similarity_different.mean()
+        whole_loss_different = 1 + cosine_similarity_different.mean()
         whole_loss = self.whole_different_coefficient * whole_loss_different + whole_loss_same
 
         return whole_loss, whole_loss_same, whole_loss_different

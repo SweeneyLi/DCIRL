@@ -10,7 +10,7 @@ from torch import optim
 
 
 def get_optim_and_scheduler(model, lr, optimizer_config):
-    params = model.parameters()
+    params = filter(lambda x: x.requires_grad, model.parameters())
 
     if optimizer_config["optimizer_type"] == 'sgd':
         optimizer = optim.SGD(params,

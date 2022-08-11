@@ -211,17 +211,17 @@ class Trainer:
                 loss_dict['whole_loss']['different'] = whole_loss_different.item()
 
             # contrast loss
-            if self.train_stage > 2:
-                middle_feature_origin, middle_feature_same, middle_feature_different = torch.split(
-                    middle_feature, [small_batch_size, small_batch_size, small_batch_size]
-                )
-                contrast_loss, contrast_loss_same, contrast_loss_different = self.loss_function.get_contrast_loss(
-                    middle_feature_origin, middle_feature_same, middle_feature_different)
-
-                total_loss += contrast_loss
-                loss_dict['contrast_loss']['total'] = contrast_loss.item()
-                loss_dict['contrast_loss']['same'] = contrast_loss_same.item()
-                loss_dict['contrast_loss']['different'] = contrast_loss_different.item()
+            # if self.train_stage > 2:
+            #     middle_feature_origin, middle_feature_same, middle_feature_different = torch.split(
+            #         middle_feature, [small_batch_size, small_batch_size, small_batch_size]
+            #     )
+            #     contrast_loss, contrast_loss_same, contrast_loss_different = self.loss_function.get_contrast_loss(
+            #         middle_feature_origin, middle_feature_same, middle_feature_different)
+            #
+            #     total_loss += contrast_loss
+            #     loss_dict['contrast_loss']['total'] = contrast_loss.item()
+            #     loss_dict['contrast_loss']['same'] = contrast_loss_same.item()
+            #     loss_dict['contrast_loss']['different'] = contrast_loss_different.item()
 
             loss_dict['total_loss'] = total_loss.item()
             # loss backward
@@ -257,18 +257,18 @@ class Trainer:
                     'grad': str(self.model.module.senior_module[0].weight.grad[0][:2]),
                     'weight': str(self.model.module.senior_module[0].weight[0][:2])
                 },
-                'middle module linear': {
-                    'grad': str(self.model.module.middle_module[0].weight.grad[0][:2]),
-                    'weight': str(self.model.module.middle_module[0].weight[0][:2])
-                },
-                'basic module last conv2': {
-                    'grad': str(self.model.module.basic_module.layer4[1].conv2.weight.grad[0][0][0][:2]),
-                    'weight': str(self.model.module.middle_module[0].weight[0][:2])
-                },
-                'basic module first conv1': {
-                    'grad': str(self.model.module.basic_module.conv1.weight.grad[0][0][0][:2]),
-                    'weight': str(self.model.module.basic_module.conv1.weight[0][0][0][:2])
-                }
+                # 'middle module linear': {
+                #     'grad': str(self.model.module.middle_module[0].weight.grad[0][:2]),
+                #     'weight': str(self.model.module.middle_module[0].weight[0][:2])
+                # },
+                # 'basic module last conv2': {
+                #     'grad': str(self.model.module.basic_module.layer4[1].conv2.weight.grad[0][0][0][:2]),
+                #     'weight': str(self.model.module.middle_module[0].weight[0][:2])
+                # },
+                # 'basic module first conv1': {
+                #     'grad': str(self.model.module.basic_module.conv1.weight.grad[0][0][0][:2]),
+                #     'weight': str(self.model.module.basic_module.conv1.weight[0][0][0][:2])
+                # }
             }
             self.logger.log(
                 iter_idx=iter_idx,

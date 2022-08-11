@@ -37,7 +37,7 @@ class Visualization(object):
                   'ylabel': 'loss',
                   'legend': ['accuracy', 'total_loss', 'classifier_loss',
                              'whole_loss', 'whole_loss_same', 'whole_loss_different',
-                             'contrast_loss', 'contrast_loss_common', 'contrast_loss_different'],
+                             'contrast_loss', 'contrast_loss_same', 'contrast_loss_different'],
                   'width': 1200,
                   'height': 500,
                   'showlegend': True})
