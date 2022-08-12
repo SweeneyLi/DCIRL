@@ -38,14 +38,16 @@ optimizer:
 output:
   root_path: "/home/lixy/DCIRL/checkout"
   min_save_epoch: 1
+log:
+  update_frequency: 10
 visdom:
   env: 'dc-env'
   network:
     port: 7557
     server: 'http://localhost'
     base_url: '/'
-  image_show:
-    nrow: 1
+  image_win_basic:
+    n_row: 1
     scale: 3
     height: 256
     width: 256
@@ -54,4 +56,18 @@ visdom:
     origin_samples_domain: ~
     same_samples_domain: ~
     different_samples_domain: ~
-  update_frequency: 10
+  text_win_basic:
+    show_legend: true
+  text_win:
+    train_curve:
+      legend: ['accuracy', 'total_loss', 'classifier_loss', 'layer4_loss']
+      xlabel: 'iteration'
+      ylabel: 'loss'
+      width: 1200
+      height: 500
+    accuracy_curve:
+      legend: ['val_accuracy', 'test_accuracy']
+      xlabel: 'epoch'
+      ylabel: 'accuracy'
+      width: 1200
+      height: 200
