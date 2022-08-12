@@ -5,14 +5,18 @@ import torch.nn as nn
 
 class Visualization(object):
 
-    def get_image_win_dict(self, image_win_config_dict):
-        for win_name in image_win_config_dict.keys():
-            if image_win_config_dict[win_name] == None:
-                image_win_config_dict[win_name] = {}
+    def get_image_win_dict(self, image_win_config):
+        for win_name in image_win_config.keys():
+            if image_win_config[win_name] == None:
+                image_win_config[win_name] = {}
             for k, v in self.image_win_common_config.items():
-                win_config[k] = win_config.get(k, self.image_win_common_config[k])
-            image_win_tensor = np.zeros(
-                (win_config['number'], 3, int(win_config['width'] / win_config['scale']), int(win_config['height'] / win_config['scale'])))
+                image_win_config[win_name][k] = image_win_config[win_name].get(k, self.image_win_common_config[k])
+            image_win_tensor = np.zeros((
+                image_win_config[win_name]['number'],
+                 3,
+                 int(image_win_config[win_name]['width'] / image_win_config[win_name]['scale']),
+                 int(image_win_config[win_name]['height'] / image_win_config[win_name]['scale'])
+            ))
 
         self.origin_sample_win = self.viz.images(
             tensor=win_tensor, nrow=self.nrow, opts={'title': 'Origin Samples Domain'}
