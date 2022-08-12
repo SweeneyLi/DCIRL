@@ -15,85 +15,114 @@ from torch.utils.data import DataLoader
 import torch.utils.data as data
 from torchvision import transforms
 
-random.seed(1)
+# random.seed(1)
+
+get_class_fun_dict = {
+    'tiered_imagenet': lambda x: x.split('.')[0][:9],
+    'miniImageNet': lambda x: x.split('.')[0][:9]
+}
 
 
-def get_data_loader_dict(dataset_file, dataset_name, dataset_path, image_size, batch_size, shuffle=True, num_workers=4):
+def get_data_loader_dict(root_path, dataset_name, image_size, phase,
+                         n_ways, k_shots, query_shots,
+                         batch_size, shuffle=True, num_workers=4):
     data_loader_dict = {}
-    for phase in ['train', 'val', 'test']:
-        if dataset_name == 'miniImageNet':
-            dataset = MiniImageNetDataset(dataset_path, image_size, dataset_file, phase)
-        else:
-            dataset = None
 
-        assert batch_size - dataset.class_number > 0
-        if phase != 'train':
+    if phase == 'meta-train':
+        sub_phase_list = ['train', 'val', 'test']
+    else:
+        sub_phase_list = ['train', 'val']
+
+    for sub_phase in sub_phase_list:
+        dataset = ImageClassificationDataset(
+            root_path=root_path, dataset_name=dataset_name,
+            get_class_fun=get_class_fun_dict[dataset_name],
+            image_size=image_size,
+            phase=phase, sub_phase=sub_phase,
+            n_ways=n_ways, k_shots=k_shots, query_shots=query_shots)
+
+        if phase != 'meta-train':
             batch_size = batch_size * 3
+            num_workers = 1
         data_loader = DataLoader(
             dataset=dataset,
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=num_workers
         )
-        data_loader_dict[phase] = data_loader
+        data_loader_dict[sub_phase] = data_loader
 
     return data_loader_dict
 
 
-def get_split_data(data, phase):
-    data_len = len(data)
-    assert data_len >= 3
-    if data_len < 5:
-        train_number, val_number, test_number = data_len - 2, 1, 1
-    else:
-        train_number = int(0.6 * data_len)
-        val_number = int(0.2 * data_len)
-        test_number = data_len - train_number - val_number
+class ImageClassificationDataset(data.Dataset):
+    """
+    dataset format:
+    Dataset
+    - train
+        - 001
+            - 001001.jpg
+    - test
+    - val
+    """
 
-    if phase == 'train':
-        start_index, number = 0, train_number
-    elif phase == 'val':
-        start_index, number = train_number, val_number
-    elif phase == 'test':
-        start_index, number = train_number + val_number, test_number
-    else:
-        raise ValueError('Name of phase unknown %s' % phase)
-    return data[start_index: start_index + number]
+    def __init__(self, root_path, dataset_name,
+                 get_class_fun,
+                 image_size=224,
+                 phase='meta-train', sub_phase='train',
+                 n_ways=None, k_shots=None, query_shots=None):
+        super(ImageClassificationDataset, self).__init__()
 
-
-class MiniImageNetDataset(data.Dataset):
-
-    def __init__(self, dataset_path, image_size=224, dataset_file='train', phase='train'):
-        super(MiniImageNetDataset, self).__init__()
-
+        self.images_path = os.path.join(root_path, dataset_name, phase.split('-')[1])
+        self.get_class_name_fun = get_class_fun
         self.image_size = image_size
 
-        self.dataset_info = pd.read_csv(os.path.join(dataset_path, '%s.csv' % dataset_file))
-        self.images_path = os.path.join(dataset_path, 'images')
-
         # label_dict
-        # label index start from 1
+        # label index start from 0
+        class_list = os.listdir(self.images_path)
+        if phase != 'meta-train':
+            class_list = random.sample(class_list, k=n_ways)
+
+        self.class_number = len(class_list)
         self.label_to_index_dict = {}
         self.index_to_label_dict = {}
-        class_list = list(self.dataset_info['label'].unique())
-        for i, class_name in enumerate(class_list, start=1):
+        for i, class_name in enumerate(class_list, start=0):
             self.label_to_index_dict[class_name] = i
             self.index_to_label_dict[i] = class_name
-        self.class_number = len(class_list)
 
         # image_dict: {label: filename_list}
-        temp = self.dataset_info.groupby('label').agg({'filename': list}).reset_index()
-        self.image_dict = dict(zip(temp['label'], temp['filename']))
-        self.image_list = []
-        for label in self.image_dict.keys():
-            label_data = get_split_data(self.image_dict[label], phase)
-            self.image_dict[label] = label_data
-            self.image_list.extend(label_data)
+        self.image_dict = {}
+        for label in class_list:
+            image_data = self.split_dataset(self.image_dict[label], phase, sub_phase, k_shots, query_shots)
+            self.image_dict[label] = image_data
+        self.image_list = list(self.image_dict.values())
 
         # data process
         self.resize = transforms.Resize([image_size[0], image_size[1]])
         self.to_tensor = transforms.ToTensor()
         self.normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+
+    def split_dataset(self, data, phase, sub_phase, k_shots, query_shots):
+        random.shuffle(data)
+        data_len = len(data)
+        if phase == 'meta-train':
+            train_number = int(0.6 * data_len)
+            val_number = int(0.2 * data_len)
+            test_number = data_len - train_number - val_number
+        else:
+            train_number = k_shots
+            val_number = query_shots
+            test_number = 0
+
+        start_index, number = 0, 0
+        if sub_phase == 'train':
+            start_index, number = 0, train_number
+        elif sub_phase == 'val':
+            start_index, number = train_number, val_number
+        elif sub_phase == 'test':
+            start_index, number = train_number + val_number, test_number
+
+        return data[start_index: start_index + number]
 
     def __len__(self):
         return len(self.image_list)
@@ -103,14 +132,15 @@ class MiniImageNetDataset(data.Dataset):
         return self.get_item(image_name)
 
     def get_item(self, image_name):
-        label = self.label_to_index_dict.get(image_name.split('.')[0][:9])
+        class_name = self.get_class_name_fun(image_name)
+        label_index = self.label_to_index_dict.get(class_name)
 
-        sample = Image.open(os.path.join(self.images_path, image_name))
+        sample = Image.open(os.path.join(self.images_path, class_name, image_name))
         sample = self.resize(sample)
         sample = self.to_tensor(sample)
         sample = self.normalize(sample)
 
-        return sample, torch.tensor(label)
+        return sample, torch.tensor(label_index)
 
     @staticmethod
     def randint(low, high, discard):

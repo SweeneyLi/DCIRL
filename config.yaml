@@ -1,32 +1,25 @@
 dataset:
-  name: "miniImageNet"
-  file: "train"
-  path: "/home/share/image_classification/mini-imagenet"
+  root_path: "/home/share/image_classification"
+  #  name: "miniImageNet"
+  name: "tiered_imagenet"
   image_size: (224, 224, 3)
+  few_shot:
+    n_ways: 5
+    k_shots: 5
+    query_shots: 15
 model:
-  load_state_dict:
-#    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/16epoch_92.99%acc.pth'
-#    start_stage: 2
-#    start_lr: 0.01
-    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
-    start_stage: 3
-    start_lr: 0.0005
+  #  load_state_dict:
+  #    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
+  #    start_stage: 3
+  #    start_lr: 0.0005
   basic_module:
     name: 'resnet18'
     pretrained: true
     out_dim: 512
-  middle_module:
-    features_list:
-      - (64, 16)
-  senior_module:
-    features_list:
-      - 2048
 loss:
   coefficient:
-    whole_different_coefficient: 1
-    common_coefficient: 2
-    different_coefficient: 1
-    off_diag_coefficient: 0.005
+    abstraction: 1
+    contrast: 1
   stage_epoch_threshold: 8
 train:
   batch_size: 200
@@ -45,11 +38,20 @@ optimizer:
 output:
   root_path: "/home/lixy/DCIRL/checkout"
   min_save_epoch: 1
-log:
-  env: "train-env-py"
-  nrow: 1
-  scale: 3
-  height: 256
-  width: 256
+visdom:
+  env: 'dc-env'
+  network:
+    port: 7557
+    server: 'http://localhost'
+    base_url: '/'
+  image_show:
+    nrow: 1
+    scale: 3
+    height: 256
+    width: 256
+    number: 5
+  image_win:
+    origin_samples_domain: ~
+    same_samples_domain: ~
+    different_samples_domain: ~
   update_frequency: 10
-

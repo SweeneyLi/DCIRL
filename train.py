@@ -6,15 +6,13 @@
 @Desc  :train the model
 """
 import os
-import numpy as np
-from collections import deque
 
 import torch.cuda
 from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss
 
 from data.dataloader import get_data_loader_dict
-from model.DCIRL import DCModule
+from model.DCResnet import resnet18
 from model.loss_function import DCLoss
 from model.optimizer_factory import get_optim_and_scheduler
 from utils.tools import read_config, str_to_tuple, calculate_correct, calculate_class_correct
@@ -36,39 +34,31 @@ class Trainer:
         # dataset
         self.dataset_name = config['dataset']['name']
         self.data_loader_dict = get_data_loader_dict(
-            dataset_file=config['dataset']['file'],
+            root_path=config['dataset']['root_path'],
             dataset_name=config['dataset']['name'],
-            dataset_path=config['dataset']['path'],
             image_size=str_to_tuple(config['dataset']['image_size']),
+            phase='meta-train',
+            n_ways=config['dataset']['few_shot']['n_ways'],
+            k_shots=config['dataset']['few_shot']['k_shots'],
+            query_shots=config['dataset']['few_shot']['query_shots'],
             batch_size=config['train']['batch_size'],
             shuffle=True,
-            num_workers=4)
+            num_workers=4
+        )
         self.class_number = self.data_loader_dict['train'].dataset.class_number
         self.index_to_label_dict = self.data_loader_dict['train'].dataset.index_to_label_dict
 
         # network
-        self.model = DCModule(
-            backbone_pretrained=config['model']['basic_module']['pretrained'],
-            basic_module_name=config['model']['basic_module']['name'],
-            basic_module_out_dim=config['model']['basic_module']['out_dim'],
-            middle_module_features_list=str_to_tuple(config['model']['middle_module']['features_list']),
-            senior_module_features_list=str_to_tuple(config['model']['senior_module']['features_list']),
-            class_num=self.class_number
-        ).cuda()
+        self.model = resnet18(num_classes=self.class_number, pretrained=True).cuda()
         self.model = torch.nn.DataParallel(self.model)
 
         # loss
         self.train_stage = 1
         self.stage_epoch_threshold = config['loss']['stage_epoch_threshold']
-
         self.criterion = CrossEntropyLoss()
         self.loss_function = DCLoss(
-            batch_size=config['train']['batch_size'],
-            class_num=self.class_number,
-            off_diag_coefficient=config['loss']['coefficient']['off_diag_coefficient'],
-            common_coefficient=config['loss']['coefficient']['common_coefficient'],
-            different_coefficient=config['loss']['coefficient']['different_coefficient'],
-            whole_different_coefficient=config['loss']['coefficient']['whole_different_coefficient']
+            abstraction_coefficient=config['loss']['abstraction'],
+            contrast_coefficient=config['loss']['contrast']
         )
 
         # train
@@ -105,18 +95,18 @@ class Trainer:
         )
 
         # load state dict
-        load_state_dict_config = config['model'].get('load_state_dict', None)
-        if load_state_dict_config:
-            self.train_stage = load_state_dict_config.get('start_stage', self.train_stage)
-            self.lr = load_state_dict_config.get('start_lr', self.lr)
-
-            load_dict = torch.load(load_state_dict_config['path'])
-            self.model.load_state_dict(load_dict['model_state_dict'])
-
-            del load_dict['model_state_dict']
-            self.logger.logging.critical(
-                'state_dict:\n%s' % ("\n".join(["%32s: %s" % (str(k), str(v)) for k, v in load_dict.items()]))
-            )
+        # load_state_dict_config = config['model'].get('load_state_dict', None)
+        # if load_state_dict_config:
+        #     self.train_stage = load_state_dict_config.get('start_stage', self.train_stage)
+        #     self.lr = load_state_dict_config.get('start_lr', self.lr)
+        #
+        #     load_dict = torch.load(load_state_dict_config['path'])
+        #     self.model.load_state_dict(load_dict['model_state_dict'])
+        #
+        #     del load_dict['model_state_dict']
+        #     self.logger.logging.critical(
+        #         'state_dict:\n%s' % ("\n".join(["%32s: %s" % (str(k), str(v)) for k, v in load_dict.items()]))
+        #     )
 
         self.logger.logging.info('model info: ' + str(self.model))
         self.logger.logging.info('label dict: ' + str(self.data_loader_dict['train'].dataset.label_to_index_dict))

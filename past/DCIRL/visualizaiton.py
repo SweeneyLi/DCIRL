@@ -4,18 +4,36 @@ import torch.nn as nn
 
 
 class Visualization(object):
-    def __init__(self, visual_env, visual_nrow, visual_scale, batch_size, height, width):
-        self.viz = Visdom(port=7557, server='http://localhost', base_url='/', username='', password='',
-                          use_incoming_socket=True, env=visual_env)
+
+    def get_image_win_dict(self, image_win_config_dict):
+        for win_name in image_win_config_dict.keys():
+            if image_win_config_dict[win_name] == None:
+                image_win_config_dict[win_name] = {}
+            for k, v in self.image_win_common_config.items():
+                win_config[k] = win_config.get(k, self.image_win_common_config[k])
+            image_win_tensor = np.zeros(
+                (win_config['number'], 3, int(win_config['width'] / win_config['scale']), int(win_config['height'] / win_config['scale'])))
+
+        self.origin_sample_win = self.viz.images(
+            tensor=win_tensor, nrow=self.nrow, opts={'title': 'Origin Samples Domain'}
+        )
+
+    def __init__(self, visdom_config):
+        self.viz = Visdom(
+            env=visdom_config['env'],
+            port=visdom_config['port'],
+            server=visdom_config['server'],
+            base_url=visdom_config['base_url'],
+            use_incoming_socket=True,
+        )
         assert self.viz.check_connection(timeout_seconds=3), 'Please Open The Visdom Server'
 
-        self.nrow = visual_nrow
-        self.scale = visual_scale
-        self.batch_size = batch_size
-        self.height = height
-        self.width = width
-
-        win_tensor = np.zeros((self.batch_size, 3, int(self.height / self.scale), int(self.width / self.scale)))
+        self.image_win_common_config = {
+            'image_scale': visdom_config['image_show']['scale'],
+            'image_number': visdom_config['image_show']['number'],
+            'image_width': visdom_config['image_show']['width'],
+            'image_height': visdom_config['image_show']['height']
+        }
 
         self.eval_win = self.viz.line(
             X=np.column_stack(([0], [0])),
