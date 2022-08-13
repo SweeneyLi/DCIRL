@@ -4,56 +4,52 @@ import torch.nn as nn
 
 
 class Visualization(object):
-
-    def __init__(self, visdom_config):
-        self.viz = Visdom(
-            env=visdom_config['env'],
-            port=visdom_config['port'],
-            server=visdom_config['server'],
-            base_url=visdom_config['base_url'],
-            use_incoming_socket=True,
-        )
+    def __init__(self, visual_env, visual_nrow, visual_scale, batch_size, height, width):
+        self.viz = Visdom(port=7557, server='http://localhost', base_url='/', username='', password='',
+                          use_incoming_socket=True, env=visual_env)
         assert self.viz.check_connection(timeout_seconds=3), 'Please Open The Visdom Server'
 
-        self.image_win_basic_config = visdom_config['image_win_basic']
-        self.text_win_basic_config = visdom_config['text_win_basic']
+        self.nrow = visual_nrow
+        self.scale = visual_scale
+        self.batch_size = batch_size
+        self.height = height
+        self.width = width
 
-        self.text_win = self.get_text_win(visdom_config['text_win'])
-        self.image_win = self.get_image_win(visdom_config['image_win'])
+        win_tensor = np.zeros((self.batch_size, 3, int(self.height / self.scale), int(self.width / self.scale)))
 
-    def get_image_win(self, image_win_config):
-        for win_name in image_win_config.keys():
-            if image_win_config[win_name] is None:
-                image_win_config[win_name] = {}
-            for k, v in self.image_win_basic_config.items():
-                image_win_config[win_name][k] = image_win_config[win_name].get(k, self.image_win_basic_config[k])
-            image_win_tensor = np.zeros((
-                image_win_config[win_name]['number'],
-                3,
-                int(image_win_config[win_name]['width'] / image_win_config[win_name]['scale']),
-                int(image_win_config[win_name]['height'] / image_win_config[win_name]['scale'])
-            ))
-            image_win_config[win_name]['win'] = self.viz.images(
-                tensor=image_win_tensor,
-                nrow=image_win_config[win_name]['n_row'],
-                opts={'title': win_name}
-            )
-            image_win_config[win_name]['down_sample'] = nn.Upsample(
-                scale_factor=1. / image_win_config[win_name]['scale'], mode='bilinear', align_corners=True)
-        return image_win_config
+        self.eval_win = self.viz.line(
+            X=np.column_stack(([0], [0])),
+            Y=np.column_stack(([0], [0])),
+            opts={'title': 'accuracy curve',
+                  'xlabel': 'iteration',
+                  'ylabel': 'accuracy',
+                  'legend': ['val_accuracy', 'test_accuracy'],
+                  'width': 1200,
+                  'height': 200,
+                  'showlegend': True})
+        self.downsample = nn.Upsample(scale_factor=1. / self.scale, mode='bilinear', align_corners=True)
 
-    def get_text_win(self, text_win_config):
-        for win_name in text_win_config.keys():
-            for k, v in self.text_win_basic_config.items():
-                text_win_config[win_name][k] = text_win_config[win_name].get(k, self.text_win_basic_config[k])
-
-            text_win_config['win_name']['title'] = win_name
-            legend_length = len(text_win_config['win_name']['legend'])
-            text_win_config['win_name']['win'] = self.viz.line(
-                X=np.zeros(legend_length, dtype=int),
-                Y=np.zeros(legend_length, dtype=float),
-                opts=text_win_config['win_name'])
-        return text_win_config
+        self.train_loss_win = self.viz.line(
+            X=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0], [0])),
+            Y=np.column_stack(([0], [0], [0], [0], [0], [0], [0], [0], [0])),
+            opts={'title': 'train curve',
+                  'xlabel': 'iteration',
+                  'ylabel': 'loss',
+                  'legend': ['accuracy', 'total_loss', 'classifier_loss',
+                             'whole_loss', 'whole_loss_same', 'whole_loss_different',
+                             'contrast_loss', 'contrast_loss_same', 'contrast_loss_different'],
+                  'width': 1200,
+                  'height': 500,
+                  'showlegend': True})
+        self.origin_sample_win = self.viz.images(
+            tensor=win_tensor, nrow=self.nrow, opts={'title': 'Origin Samples Domain'}
+        )
+        self.same_sample_win = self.viz.images(
+            tensor=win_tensor, nrow=self.nrow, opts={'title': 'Same Samples Domain'}
+        )
+        self.different_sample_win = self.viz.images(
+            tensor=win_tensor, nrow=self.nrow, opts={'title': 'Different Samples Domain'}
+        )
 
     def visual_train(self, origin_samples, same_samples, different_samples, accuracy, total_loss, classifier_loss,
                      whole_loss,
