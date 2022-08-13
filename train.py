@@ -12,7 +12,7 @@ from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss
 
 from data.dataloader import get_data_loader_dict
-from model.DCResnet import resnet18
+from model.Resnet import resnet18
 from model.loss_function import DCLoss
 from model.optimizer_factory import get_optim_and_scheduler
 from utils.tools import read_config, str_to_tuple, calculate_correct, calculate_class_correct
@@ -20,8 +20,8 @@ from utils.logger import Logger
 from utils.visualizaiton import Visualization
 
 # load config
-config_path = 'config.yaml'
-config = read_config(config_path)
+config_dir_path = 'config'
+config = read_config(config_dir_path)
 
 # set gpu
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
@@ -54,11 +54,12 @@ class Trainer:
 
         # loss
         self.train_stage = 1
+        self.middle_loss_length = 4
         self.stage_epoch_threshold = config['loss']['stage_epoch_threshold']
         self.criterion = CrossEntropyLoss()
         self.loss_function = DCLoss(
-            abstraction_coefficient=config['loss']['abstraction'],
-            contrast_coefficient=config['loss']['contrast']
+            same_coefficient=config['loss']['coefficient']['same'],
+            different_coefficient=config['loss']['coefficient']['different']
         )
 
         # train
@@ -81,18 +82,13 @@ class Trainer:
             min_save_epoch=config['output']['min_save_epoch'],
             dataset_name=self.dataset_name,
             output_root_dir=self.output_root_dir,
+            log_layer=config['log']['layer'],
             update_frequency=config['log']['update_frequency']
         )
 
         # visual
-        self.visualize = Visualization(
-            visual_env=config['log']['env'],
-            visual_nrow=config['log']['nrow'],
-            visual_scale=config['log']['scale'],
-            batch_size=config['train']['batch_size'],
-            height=config['log']['height'],
-            width=config['log']['width']
-        )
+        self.visual_image_number = config['visdom']['image_win_basic']['number']
+        self.visualize = Visualization(config['visdom'])
 
         # load state dict
         # load_state_dict_config = config['model'].get('load_state_dict', None)
@@ -160,58 +156,35 @@ class Trainer:
 
             # forward
             total_loss = torch.tensor(0.0, requires_grad=True).cuda()
-            loss_dict = {
-                'classifier_loss': 0,
-                'whole_loss': {
-                    'total': 0,
-                    'same': 0,
-                    'different': 0
-                },
-                'contrast_loss': {
-                    'total': 0,
-                    'same': 0,
-                    'different': 0
-                },
-                'total_loss': 0
-            }
+            loss_dict = {}
 
             # calculate features and losses
-            middle_feature, senior_feature, classifier = self.model(samples)
+            middle_feature_dict, final_feature = self.model(samples)
 
             # correct number
-            correct_number = calculate_correct(classifier, labels)
+            correct_number = calculate_correct(final_feature, labels)
 
             # classifier loss
-            classifier_loss = self.criterion(classifier, labels.add(-1))
+            classifier_loss = self.criterion(final_feature, labels)
             loss_dict['classifier_loss'] = classifier_loss.item()
             total_loss += classifier_loss
 
             # whole loss
-            if self.train_stage > 1:
-                senior_feature_origin, senior_feature_same, senior_feature_different = torch.split(
-                    senior_feature, [small_batch_size, small_batch_size, small_batch_size]
+            for i in range(1, self.train_stage):
+                middle_layer_name = middle_feature_dict.keys()[self.middle_loss_length - i]
+                middle_feature = middle_feature_dict[middle_layer_name]
+                middle_origin_feature, middle_same_feature, middle_different_feature = torch.split(
+                    middle_feature, [small_batch_size, small_batch_size, small_batch_size]
                 )
-                whole_loss, whole_loss_same, whole_loss_different = self.loss_function.get_whole_loss(
-                    senior_feature_origin, senior_feature_same, senior_feature_different
+                middle_loss, middle_same_loss, middle_different_loss = self.loss_function.get_same_different_loss(
+                    middle_origin_feature, middle_same_feature, middle_different_feature
                 )
 
-                total_loss += whole_loss
-                loss_dict['whole_loss']['total'] = whole_loss.item()
-                loss_dict['whole_loss']['same'] = whole_loss_same.item()
-                loss_dict['whole_loss']['different'] = whole_loss_different.item()
-
-            # contrast loss
-            # if self.train_stage > 2:
-            #     middle_feature_origin, middle_feature_same, middle_feature_different = torch.split(
-            #         middle_feature, [small_batch_size, small_batch_size, small_batch_size]
-            #     )
-            #     contrast_loss, contrast_loss_same, contrast_loss_different = self.loss_function.get_contrast_loss(
-            #         middle_feature_origin, middle_feature_same, middle_feature_different)
-            #
-            #     total_loss += contrast_loss
-            #     loss_dict['contrast_loss']['total'] = contrast_loss.item()
-            #     loss_dict['contrast_loss']['same'] = contrast_loss_same.item()
-            #     loss_dict['contrast_loss']['different'] = contrast_loss_different.item()
+                total_loss += middle_loss
+                loss_dict[middle_layer_name] = {}
+                loss_dict[middle_layer_name]['loss'] = middle_loss.item()
+                loss_dict[middle_layer_name]['same_loss'] = middle_same_loss.item()
+                loss_dict[middle_layer_name]['different_loss'] = middle_different_loss.item()
 
             loss_dict['total_loss'] = total_loss.item()
             # loss backward
@@ -221,45 +194,19 @@ class Trainer:
             self.optimizer.step()
 
             # visualize
-            self.visualize.visual_train(
-                origin_samples[:5].cpu().detach(),
-                same_samples[:5].cpu().detach(),
-                different_samples[:5].cpu().detach(),
-                correct_number.item() / batch_size,
-                loss_dict['total_loss'],
-                loss_dict['classifier_loss'],
-                loss_dict['whole_loss']['total'],
-                loss_dict['whole_loss']['same'],
-                loss_dict['whole_loss']['different'],
-                loss_dict['contrast_loss']['total'],
-                loss_dict['contrast_loss']['same'],
-                loss_dict['contrast_loss']['different'],
-                self.global_iter
-            )
+            self.visualize.visual_text({
+                'train_curve': {
+                    'x': self.global_iter,
+                    'accuracy': correct_number / batch_size,
+                    **loss_dict,
+                }
+            })
+            self.visualize.visual_image({
+                'origin_samples_domain': origin_samples[:self.visual_image_number].cpu().detach(),
+                'same_samples_domain': same_samples[:self.visual_image_number].cpu().detach(),
+                'different_samples_domain': different_samples[:self.visual_image_number].cpu().detach(),
+            })
 
-            # log
-            weight_grad_dict = {
-                'last fc': {
-                    'grad': str(self.model.module.fc.weight.grad[0][:2]),
-                    'weight': str(self.model.module.fc.weight[0][:2])
-                },
-                'senior module linear': {
-                    'grad': str(self.model.module.senior_module[0].weight.grad[0][:2]),
-                    'weight': str(self.model.module.senior_module[0].weight[0][:2])
-                },
-                # 'middle module linear': {
-                #     'grad': str(self.model.module.middle_module[0].weight.grad[0][:2]),
-                #     'weight': str(self.model.module.middle_module[0].weight[0][:2])
-                # },
-                # 'basic module last conv2': {
-                #     'grad': str(self.model.module.basic_module.layer4[1].conv2.weight.grad[0][0][0][:2]),
-                #     'weight': str(self.model.module.middle_module[0].weight[0][:2])
-                # },
-                # 'basic module first conv1': {
-                #     'grad': str(self.model.module.basic_module.conv1.weight.grad[0][0][0][:2]),
-                #     'weight': str(self.model.module.basic_module.conv1.weight[0][0][0][:2])
-                # }
-            }
             self.logger.log(
                 iter_idx=iter_idx,
                 max_iter=max_iter,
@@ -267,7 +214,7 @@ class Trainer:
                 losses_dict=loss_dict,
                 correct_number=correct_number,
                 batch_size=batch_size,
-                weight_grad_dict=weight_grad_dict
+                model_parameters=self.model.named_parameters()
             )
             self.global_iter += 1
 
@@ -276,12 +223,12 @@ class Trainer:
         # evaluation
         self.model.eval()
         with torch.no_grad():
-            for phase in ['val', 'test']:
-                data_loader = self.data_loader_dict[phase]
+            for sub_phase in ['val', 'test']:
+                data_loader = self.data_loader_dict[sub_phase]
                 class_accuracy_dict, accuracy_info_dict = self.do_eval(data_loader)
 
-                self.logger.log_test(phase, class_accuracy_dict, accuracy_info_dict)
-                self.results[phase][self.current_epoch] = {
+                self.logger.log_test(sub_phase, class_accuracy_dict, accuracy_info_dict)
+                self.results[sub_phase][self.current_epoch] = {
                     'class_accuracy': class_accuracy_dict,
                     'accuracy_info': accuracy_info_dict
                 }
@@ -299,14 +246,21 @@ class Trainer:
                                self.optimizer.param_groups[-1]['lr'])
 
         # change train stage
-        if self.train_stage < 3 and self.current_epoch - self.best_val_epoch > self.stage_epoch_threshold:
+        if self.train_stage < self.middle_loss_length and self.current_epoch - self.best_val_epoch > self.stage_epoch_threshold:
             self.train_stage += 1
             self.logger.logging.critical(self.logger.get_epoch_string() + 'change to %d stage' % self.train_stage)
 
         # visual eval curve
         val_accuracy = self.results['val'][self.current_epoch]['accuracy_info']['average_accuracy']
         test_accuracy = self.results['val'][self.current_epoch]['accuracy_info']['average_accuracy']
-        self.visualize.visual_eval(val_accuracy, test_accuracy, self.global_iter)
+
+        self.visualize.visual_text({
+            'accuracy_curve': {
+                'x': self.current_epoch,
+                'val_accuracy': val_accuracy,
+                'test_accuracy': test_accuracy,
+            }
+        })
 
     def do_eval(self, data_loader):
         class_correct_list = [0 for _ in range(self.class_number + 1)]

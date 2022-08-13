@@ -9,13 +9,15 @@ import yaml
 import os
 import datetime
 import torch
-
+import numpy as np
 
 def read_config(yaml_config_path):
-    assert os.path.isfile(yaml_config_path) is True
-    with open(yaml_config_path, 'r') as f:
-        yaml_config = yaml.load(f.read(), Loader=yaml.Loader)
-    return yaml_config
+    config_list = os.listdir(yaml_config_path)
+    config = {}
+    for config_name in config_list:
+        with open(os.path.join(yaml_config_path, config_name), 'r') as f:
+            config.update(yaml.load(f.read(), Loader=yaml.Loader))
+    return config
 
 
 def time_format(seconds):
@@ -38,17 +40,27 @@ def get_current_time_string(hours=8, time_format='%m%d_%H%M'):
     return (datetime.datetime.now() + datetime.timedelta(hours=hours)).strftime(time_format)
 
 
+def combine_dict(input_dict):
+    temp_dict = {}
+    for k, v in input_dict.items():
+        if type(v) == dict:
+            for kk, vv in v.items():
+                temp_dict[k + '_' + kk] = vv
+
+    return {**input_dict, **temp_dict}
+
+
 def calculate_correct(scores, labels):
     assert scores.size(0) == labels.size(0)
     _, pred = scores.max(dim=1)
-    correct = torch.sum(pred.add(1).eq(labels))
-    return correct
+    correct = torch.sum(pred.eq(labels))
+    return correct.item()
 
 
 def calculate_class_correct(scores, labels):
     _, pred = scores.max(dim=1)
-    correct_labels = labels * pred.add(1).eq(labels)
-    class_correct = torch.bincount(correct_labels.cpu()).numpy()
-    class_correct[0] = 0
+    correct_labels_add_1 = labels.add(1) * pred.eq(labels)
+    class_correct = torch.bincount(correct_labels_add_1.cpu()).numpy()
+    class_correct = np.delete(class_correct, 0)
     class_number = torch.bincount(labels.cpu()).numpy()
     return class_correct, class_number

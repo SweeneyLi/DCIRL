@@ -6,7 +6,7 @@
 @Desc  :build the model
 """
 
-from model import resnet
+from past import resnet
 
 backbone_map = {
     'resnet18': resnet.resnet18,

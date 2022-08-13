@@ -19,8 +19,8 @@ class TestTools:
             [0.3, 0.1, 0.9],
             [0.9, 0.1, 0.9],
         ])
-        labels = torch.tensor([1, 1, 3, 1])
-        a, b = numpy.array([0, 2, 0, 1]), numpy.array([0, 3, 0, 1])
+        labels = torch.tensor([0, 0, 2, 0])
+        a, b = numpy.array([2, 0, 1]), numpy.array([3, 0, 1])
 
         r_a, r_b = calculate_class_correct(scores, labels)
 
@@ -34,9 +34,9 @@ class TestTools:
             [0.3, 0.1, 0.9],
             [0.9, 0.1, 0.9],
         ])
-        labels = torch.tensor([1, 1, 3, 1])
-        e = torch.tensor(3)
+        labels = torch.tensor([0, 0, 2, 0])
+        e = 3
 
         r = calculate_correct(scores, labels)
 
-        assert r.equal(e)
+        assert r == e

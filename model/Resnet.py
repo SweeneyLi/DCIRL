@@ -1,5 +1,5 @@
 """
-@File  :DCResnet.py
+@File  :Resnet.py
 @Author:SweeneyLi
 @Email :sweeneylee.gm@gmail.com
 @Date  :2022/8/11 21:15
@@ -13,7 +13,10 @@ from torchvision.models.resnet import model_urls
 def resnet18(num_classes, pretrained=False):
     model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet18']), strict=False)
+        state_dict = model_zoo.load_url(model_urls['resnet18'])
+        del state_dict['fc.weight']
+        del state_dict['fc.bias']
+        model.load_state_dict(state_dict, strict=False)
     return model
 
 
@@ -50,10 +53,10 @@ class ResNet(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers.append(block(self.inplanes, planes, stride, downsample, block_id=1))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+            layers.append(block(self.inplanes, planes, block_id=2))
 
         return nn.Sequential(*layers)
 
@@ -72,14 +75,20 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        return layer1_out, layer2_out, layer3_out, layer4_out, x
+        middle_feature_dict = {
+            'layer1': layer1_out,
+            'layer2': layer2_out,
+            'layer3': layer3_out,
+            'layer4': layer4_out,
+        }
+        return middle_feature_dict, x
 
 
 class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
-                 base_width=64, dilation=1, norm_layer=None):
+                 base_width=64, dilation=1, norm_layer=None, block_id=1):
         super(BasicBlock, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -95,8 +104,11 @@ class BasicBlock(nn.Module):
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
+        self.block_id = block_id
 
     def forward(self, x):
+        if self.block_id != 1:
+            x = x[1]
         identity = x
 
         out = self.conv1(x)
@@ -106,15 +118,10 @@ class BasicBlock(nn.Module):
         out = self.conv2(out)
         out = self.bn2(out)
 
-        origin_out = out.clone()
-
         if self.downsample is not None:
             identity = self.downsample(x)
 
-        out += identity
-        out = self.relu(out)
-
-        return origin_out, out
+        return out, self.relu(out + identity)
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):

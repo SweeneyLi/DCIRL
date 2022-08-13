@@ -23,12 +23,11 @@ def beijing(sec, what):
     return beijing_time.timetuple()
 
 
-
 class Logger:
     LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
     DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
 
-    def __init__(self, config, max_epochs, min_save_epoch, dataset_name, output_root_dir, update_frequency=60):
+    def __init__(self, config, max_epochs, min_save_epoch, dataset_name, output_root_dir, log_layer=[],update_frequency=60):
         self.config = config
 
         self.current_iter = 0
@@ -46,6 +45,7 @@ class Logger:
         self.total_number = 0
 
         self.update_frequency = update_frequency
+        self.log_layer = log_layer
 
         # DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET
         self.logging = logging
@@ -112,7 +112,7 @@ class Logger:
                 result[k] = result[k] / epoch_number
         return result
 
-    def log(self, iter_idx, max_iter, global_iter, losses_dict, correct_number, batch_size, weight_grad_dict):
+    def log(self, iter_idx, max_iter, global_iter, losses_dict, correct_number, batch_size, model_parameters):
         self.current_iter += 1
         epoch_string = self.get_epoch_string()
 
@@ -138,6 +138,7 @@ class Logger:
                 self.logging.debug(epoch_string + string)
 
             self.logging.debug(epoch_string + "<gradient info>:")
+            weight_grad_dict = self.get_weight_grad_dict(model_parameters)
             for string in ["%24s: %s" % (str(k), str(v)) for k, v in weight_grad_dict.items()]:
                 self.logging.debug(epoch_string + string)
 
@@ -151,6 +152,29 @@ class Logger:
 
             epoch_acc_string = "%.3f%%" % (100 * float(self.total_correct_number) / self.total_number)
             self.logging.info(epoch_string + "<Accuracies on train>: " + epoch_acc_string)
+
+    def get_weight_grad_dict(self, model_parameters):
+        weight_grad_dict = {}
+        for name, params in model_parameters:
+            if name not in self.log_layer:
+                continue
+
+            weight_grad_dict[name] = {
+                'grad': None,
+                'weight': None
+            }
+            if params.grad:
+                weight_grad_dict[name]['grad'] = [
+                    params.flatten().min().item(),
+                    params.flatten().max().item(),
+                ]
+
+            if params:
+                weight_grad_dict[name]['weight'] = [
+                    params.flatten().min().item(),
+                    params.flatten().max().item(),
+                ]
+        return weight_grad_dict
 
     def log_test(self, phase, class_accuracy_dict, accuracy_info_dict):
         epoch_string = self.get_epoch_string()

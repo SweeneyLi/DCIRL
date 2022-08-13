@@ -1,0 +1,49 @@
+output:
+  root_path: "/home/lixy/DCIRL/checkout"
+  min_save_epoch: 1
+log:
+  update_frequency: 10
+  layer:
+    - 'module.conv1.weight'
+    - 'module.layer1.1.conv2.weight'
+    - 'module.layer2.1.conv2.weight'
+    - 'module.layer3.1.conv2.weight'
+    - 'module.layer4.1.conv2.weight'
+    - 'module.fc.weight'
+visdom:
+  env: 'dc-env'
+  network:
+    port: 7557
+    server: 'http://localhost'
+    base_url: '/'
+  image_win_basic:
+    nrow: 1
+    scale: 3
+    height: 256
+    width: 256
+    number: 5
+  image_win:
+    origin_samples_domain: ~
+    same_samples_domain: ~
+    different_samples_domain: ~
+  text_win_basic:
+    show_legend: true
+  text_win:
+    train_curve:
+      legend:
+        - 'accuracy, total_loss, classifier_loss'
+        - 'layer4_loss, layer4_same_loss, layer4_different_loss'
+        - 'layer3_loss, layer3_same_loss, layer3_different_loss'
+        - 'layer2_loss, layer2_same_loss, layer2_different_loss'
+        - 'layer1_loss, layer1_same_loss, layer1_different_loss'
+      xlabel: 'iteration'
+      ylabel: 'loss'
+      width: 1200
+      height: 500
+    accuracy_curve:
+      legend:
+        - 'val_accuracy, test_accuracy'
+      xlabel: 'epoch'
+      ylabel: 'accuracy'
+      width: 1200
+      height: 200

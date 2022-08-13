@@ -92,10 +92,12 @@ class ImageClassificationDataset(data.Dataset):
 
         # image_dict: {label: filename_list}
         self.image_dict = {}
+        self.image_list = []
         for label in class_list:
-            image_data = self.split_dataset(self.image_dict[label], phase, sub_phase, k_shots, query_shots)
-            self.image_dict[label] = image_data
-        self.image_list = list(self.image_dict.values())
+            label_data = os.listdir(os.path.join(self.images_path, label))
+            label_data = self.split_dataset(label_data, phase, sub_phase, k_shots, query_shots)
+            self.image_dict[label] = label_data
+            self.image_list.extend(label_data)
 
         # data process
         self.resize = transforms.Resize([image_size[0], image_size[1]])
@@ -165,7 +167,7 @@ class ImageClassificationDataset(data.Dataset):
             same_samples[i], _ = self.get_item(same_sample_filename)
 
             # different
-            different_idx = self.randint(1, self.class_number, label_idx.item())
+            different_idx = self.randint(0, self.class_number - 1, label_idx.item())
             different_label_name = self.index_to_label_dict[different_idx]
             the_image_list = self.image_dict[different_label_name]
             different_sample_file_name = the_image_list[random.randint(0, len(the_image_list) - 1)]
