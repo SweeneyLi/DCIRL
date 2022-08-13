@@ -1,0 +1,38 @@
+model:
+  #  load_state_dict:
+  #    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
+  #    start_stage: 3
+  #    start_lr: 0.0005
+loss:
+  coefficient:
+    same: 1
+    different: 1
+  stage_epoch_threshold: 8
+pretrain:
+  batch_size: 450
+  epoch: 200
+  lr: 0.01
+  optimizer:
+    # sgd, adam
+    optimizer_type: "sgd"
+    momentum: 0.9
+    weight_decay: !!python/object/apply:eval [ 5e-4 ]
+    nesterov: true
+    # step, multistep, exp
+    scheduler_type: "step"
+    lr_decay_step: 20
+    lr_decay_rate: 0.5
+finetune:
+  batch_size: 450
+  epoch: 200
+  lr: 0.01
+  optimizer:
+    # sgd, adam
+    optimizer_type: "sgd"
+    momentum: 0.9
+    weight_decay: !!python/object/apply:eval [ 5e-4 ]
+    nesterov: true
+    # step, multistep, exp
+    scheduler_type: "step"
+    lr_decay_step: 20
+    lr_decay_rate: 0.5

@@ -3,6 +3,9 @@ dataset:
   #  name: "miniImageNet"
   name: "tiered_imagenet"
   image_size: (224, 224, 3)
+  data_loader:
+    shuffle: true
+    num_workers: 4
   few_shot:
     n_ways: 5
     k_shots: 5

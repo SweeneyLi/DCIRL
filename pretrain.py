@@ -1,9 +1,9 @@
 """
-@File  :train.py
+@File  :pretrain.py
 @Author:SweeneyLi
 @Email :sweeneylee.gm@gmail.com
 @Date  :2022/7/23 9:21 AM
-@Desc  :train the model
+@Desc  :
 """
 import os
 
@@ -19,32 +19,42 @@ from utils.tools import read_config, str_to_tuple, calculate_correct, calculate_
 from utils.logger import Logger
 from utils.visualizaiton import Visualization
 
-# load config
-config_dir_path = 'config'
-config = read_config(config_dir_path)
 
-# set gpu
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class BaseTrainer:
+    def __init__(self, config_dir_path='config', gpu_device='0,1'):
+        super(BaseTrainer, self).__init__()
+        self.config = self.get_config(config_dir_path)
+        self.device = self.get_device(gpu_device)
+
+    @staticmethod
+    def get_config(config_dir_path):
+        return read_config(config_dir_path)
+
+    @staticmethod
+    def get_device(gpu_device):
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_device
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class Trainer:
+class Pretrainer(BaseTrainer):
+    phase = 'pretrain'
+
     def __init__(self):
-
+        super(Pretrainer, self).__init__()
         # dataset
-        self.dataset_name = config['dataset']['name']
         self.data_loader_dict = get_data_loader_dict(
-            root_path=config['dataset']['root_path'],
-            dataset_name=config['dataset']['name'],
-            image_size=str_to_tuple(config['dataset']['image_size']),
-            phase='meta-train',
-            n_ways=config['dataset']['few_shot']['n_ways'],
-            k_shots=config['dataset']['few_shot']['k_shots'],
-            query_shots=config['dataset']['few_shot']['query_shots'],
-            batch_size=config['train']['batch_size'],
-            shuffle=True,
-            num_workers=4
+            phase=self.phase,
+            root_path=self.config['dataset']['root_path'],
+            dataset_name=self.config['dataset']['name'],
+            image_size=str_to_tuple(self.config['dataset']['image_size']),
+            n_ways=self.config['dataset']['few_shot']['n_ways'],
+            k_shots=self.config['dataset']['few_shot']['k_shots'],
+            query_shots=self.config['dataset']['few_shot']['query_shots'],
+            batch_size=self.config['pretrain']['batch_size'],
+            shuffle=self.config['dataset']['data_loader']['shuffle'],
+            num_workers=self.config['dataset']['data_loader']['num_workers'],
         )
+        self.dataset_name = self.config['dataset']['name']
         self.class_number = self.data_loader_dict['train'].dataset.class_number
         self.index_to_label_dict = self.data_loader_dict['train'].dataset.index_to_label_dict
 
@@ -55,17 +65,16 @@ class Trainer:
         # loss
         self.train_stage = 1
         self.middle_loss_length = 4
-        self.stage_epoch_threshold = config['loss']['stage_epoch_threshold']
+        self.stage_epoch_threshold = self.config['loss']['stage_epoch_threshold']
         self.criterion = CrossEntropyLoss()
         self.loss_function = DCLoss(
-            same_coefficient=config['loss']['coefficient']['same'],
-            different_coefficient=config['loss']['coefficient']['different']
+            same_coefficient=self.config['loss']['coefficient']['same'],
+            different_coefficient=self.config['loss']['coefficient']['different']
         )
 
         # train
-        self.batch_size = config['train']['batch_size']
-        self.epochs = config['train']['epoch']
-        self.lr = config['train']['lr']
+        self.epochs = self.config['pretrain']['epoch']
+        self.lr = self.config['pretrain']['lr']
 
         # output
         self.current_epoch = 1
@@ -75,34 +84,36 @@ class Trainer:
         self.best_val_acc_info = None
         self.results = {'val': [{} for _ in range(self.epochs + 1)], 'test': [{} for _ in range(self.epochs + 1)]}
 
-        self.output_root_dir = config['output']['root_path']
+        self.output_root_dir = self.config['output']['root_path']
         self.logger = Logger(
-            config=config,
+            config=self.config,
             max_epochs=self.epochs,
-            min_save_epoch=config['output']['min_save_epoch'],
+            min_save_epoch=self.config['output']['min_save_epoch'],
             dataset_name=self.dataset_name,
             output_root_dir=self.output_root_dir,
-            log_layer=config['log']['layer'],
-            update_frequency=config['log']['update_frequency']
+            log_layer=self.config['log'][
+                'layer'],
+            update_frequency=
+            self.config['log']['update_frequency']
         )
 
         # visual
-        self.visual_image_number = config['visdom']['image_win_basic']['number']
-        self.visualize = Visualization(config['visdom'])
+        self.visual_image_number = self.config['visdom']['image_win_basic']['number']
+        self.visualize = Visualization(self.config['visdom'])
 
         # load state dict
-        # load_state_dict_config = config['model'].get('load_state_dict', None)
-        # if load_state_dict_config:
-        #     self.train_stage = load_state_dict_config.get('start_stage', self.train_stage)
-        #     self.lr = load_state_dict_config.get('start_lr', self.lr)
-        #
-        #     load_dict = torch.load(load_state_dict_config['path'])
-        #     self.model.load_state_dict(load_dict['model_state_dict'])
-        #
-        #     del load_dict['model_state_dict']
-        #     self.logger.logging.critical(
-        #         'state_dict:\n%s' % ("\n".join(["%32s: %s" % (str(k), str(v)) for k, v in load_dict.items()]))
-        #     )
+        load_state_dict_config = self.config['model'].get('load_state_dict', None)
+        if load_state_dict_config:
+            self.train_stage = load_state_dict_config.get('start_stage', self.train_stage)
+            self.lr = load_state_dict_config.get('start_lr', self.lr)
+
+            load_dict = torch.load(load_state_dict_config['path'])
+            self.model.load_state_dict(load_dict['model_state_dict'])
+
+            del load_dict['model_state_dict']
+            self.logger.logging.critical(
+                'state_dict:\n%s' % ("\n".join(["%32s: %s" % (str(k), str(v)) for k, v in load_dict.items()]))
+            )
 
         self.logger.logging.info('model info: ' + str(self.model))
         self.logger.logging.info('label dict: ' + str(self.data_loader_dict['train'].dataset.label_to_index_dict))
@@ -113,7 +124,7 @@ class Trainer:
         self.optimizer, self.scheduler = get_optim_and_scheduler(
             model=self.model,
             lr=self.lr,
-            optimizer_config=config['optimizer']
+            optimizer_config=self.config['pretrain']['optimizer']
         )
 
     def do_training(self):
@@ -307,6 +318,6 @@ class Trainer:
 
 if __name__ == '__main__':
     print('start')
-    trainer = Trainer()
-    trainer.do_training()
+    pretrainer = Pretrainer()
+    pretrainer.do_training()
     print('end')

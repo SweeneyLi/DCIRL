@@ -23,15 +23,15 @@ get_class_fun_dict = {
 }
 
 
-def get_data_loader_dict(root_path, dataset_name, image_size, phase,
+def get_data_loader_dict(phase, root_path, dataset_name, image_size,
                          n_ways, k_shots, query_shots,
                          batch_size, shuffle=True, num_workers=4):
     data_loader_dict = {}
 
-    if phase == 'meta-train':
+    if phase == 'pretrain':
         sub_phase_list = ['train', 'val', 'test']
     else:
-        sub_phase_list = ['train', 'val']
+        sub_phase_list = ['train', 'test']
 
     for sub_phase in sub_phase_list:
         dataset = ImageClassificationDataset(
@@ -41,9 +41,12 @@ def get_data_loader_dict(root_path, dataset_name, image_size, phase,
             phase=phase, sub_phase=sub_phase,
             n_ways=n_ways, k_shots=k_shots, query_shots=query_shots)
 
-        if phase != 'meta-train':
-            batch_size = batch_size * 3
+        if phase == 'pretrain' or (sub_phase == 'train' and k_shots > 1):
+            batch_size = batch_size / 3
+            num_workers = num_workers
+        else:
             num_workers = 1
+
         data_loader = DataLoader(
             dataset=dataset,
             batch_size=batch_size,
@@ -69,7 +72,7 @@ class ImageClassificationDataset(data.Dataset):
     def __init__(self, root_path, dataset_name,
                  get_class_fun,
                  image_size=224,
-                 phase='meta-train', sub_phase='train',
+                 phase='pretrain', sub_phase='train',
                  n_ways=None, k_shots=None, query_shots=None):
         super(ImageClassificationDataset, self).__init__()
 
@@ -80,7 +83,7 @@ class ImageClassificationDataset(data.Dataset):
         # label_dict
         # label index start from 0
         class_list = os.listdir(self.images_path)
-        if phase != 'meta-train':
+        if phase != 'pretrain':
             class_list = random.sample(class_list, k=n_ways)
 
         self.class_number = len(class_list)
@@ -107,7 +110,7 @@ class ImageClassificationDataset(data.Dataset):
     def split_dataset(self, data, phase, sub_phase, k_shots, query_shots):
         random.shuffle(data)
         data_len = len(data)
-        if phase == 'meta-train':
+        if phase == 'pretrain':
             train_number = int(0.6 * data_len)
             val_number = int(0.2 * data_len)
             test_number = data_len - train_number - val_number
