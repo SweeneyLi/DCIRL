@@ -27,7 +27,8 @@ class Logger:
     LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
     DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
 
-    def __init__(self, config, max_epochs, min_save_epoch, dataset_name, output_root_dir, log_layer=[],update_frequency=60):
+    def __init__(self, config, max_epochs, min_save_epoch, dataset_name, output_root_dir, log_layer=[],
+                 update_frequency=60):
         self.config = config
 
         self.current_iter = 0
@@ -163,18 +164,22 @@ class Logger:
                 'grad': None,
                 'weight': None
             }
-            if params.grad:
-                weight_grad_dict[name]['grad'] = [
+            if params.grad is not None:
+                weight_grad_dict[name]['grad'] = list(map(self.float_2_scientific, [
                     params.flatten().min().item(),
                     params.flatten().max().item(),
-                ]
+                ]))
 
-            if params:
-                weight_grad_dict[name]['weight'] = [
+            if params is not None:
+                weight_grad_dict[name]['weight'] = list(map(self.float_2_scientific, [
                     params.flatten().min().item(),
                     params.flatten().max().item(),
-                ]
+                ]))
         return weight_grad_dict
+
+    @staticmethod
+    def float_2_scientific(float_number):
+        return '{:2e}'.format(float_number)
 
     def log_test(self, phase, class_accuracy_dict, accuracy_info_dict):
         epoch_string = self.get_epoch_string()

@@ -21,7 +21,7 @@ from utils.visualizaiton import Visualization
 
 
 class BaseTrainer:
-    def __init__(self, config_dir_path='config', gpu_device='0,1'):
+    def __init__(self, config_dir_path='config', gpu_device='0,1,2,3'):
         super(BaseTrainer, self).__init__()
         self.config = self.get_config(config_dir_path)
         self.device = self.get_device(gpu_device)
@@ -63,7 +63,7 @@ class Pretrainer(BaseTrainer):
         self.model = torch.nn.DataParallel(self.model)
 
         # loss
-        self.train_stage = 1
+        self.train_stage = 0
         self.middle_loss_length = 4
         self.stage_epoch_threshold = self.config['loss']['stage_epoch_threshold']
         self.criterion = CrossEntropyLoss()
@@ -72,7 +72,7 @@ class Pretrainer(BaseTrainer):
             different_coefficient=self.config['loss']['coefficient']['different']
         )
 
-        # train
+        # pretrain
         self.epochs = self.config['pretrain']['epoch']
         self.lr = self.config['pretrain']['lr']
 
@@ -91,10 +91,8 @@ class Pretrainer(BaseTrainer):
             min_save_epoch=self.config['output']['min_save_epoch'],
             dataset_name=self.dataset_name,
             output_root_dir=self.output_root_dir,
-            log_layer=self.config['log'][
-                'layer'],
-            update_frequency=
-            self.config['log']['update_frequency']
+            log_layer=self.config['log']['layer'],
+            update_frequency=self.config['log']['update_frequency']
         )
 
         # visual
@@ -102,7 +100,7 @@ class Pretrainer(BaseTrainer):
         self.visualize = Visualization(self.config['visdom'])
 
         # load state dict
-        load_state_dict_config = self.config['model'].get('load_state_dict', None)
+        load_state_dict_config = self.config['pretrain'].get('load_state_dict', None)
         if load_state_dict_config:
             self.train_stage = load_state_dict_config.get('start_stage', self.train_stage)
             self.lr = load_state_dict_config.get('start_lr', self.lr)

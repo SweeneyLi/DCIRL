@@ -42,7 +42,7 @@ def get_data_loader_dict(phase, root_path, dataset_name, image_size,
             n_ways=n_ways, k_shots=k_shots, query_shots=query_shots)
 
         if phase == 'pretrain' or (sub_phase == 'train' and k_shots > 1):
-            batch_size = batch_size / 3
+            batch_size = int(batch_size / 3)
             num_workers = num_workers
         else:
             num_workers = 1
@@ -76,7 +76,14 @@ class ImageClassificationDataset(data.Dataset):
                  n_ways=None, k_shots=None, query_shots=None):
         super(ImageClassificationDataset, self).__init__()
 
-        self.images_path = os.path.join(root_path, dataset_name, phase.split('-')[1])
+        if phase == 'pretrain':
+            db_file_name = 'train'
+        elif phase == 'finetune':
+            db_file_name = 'val'
+        else:
+            db_file_name = 'test'
+
+        self.images_path = os.path.join(root_path, dataset_name, db_file_name)
         self.get_class_name_fun = get_class_fun
         self.image_size = image_size
 
@@ -116,8 +123,8 @@ class ImageClassificationDataset(data.Dataset):
             test_number = data_len - train_number - val_number
         else:
             train_number = k_shots
-            val_number = query_shots
-            test_number = 0
+            val_number = 0
+            test_number = query_shots
 
         start_index, number = 0, 0
         if sub_phase == 'train':
@@ -126,7 +133,6 @@ class ImageClassificationDataset(data.Dataset):
             start_index, number = train_number, val_number
         elif sub_phase == 'test':
             start_index, number = train_number + val_number, test_number
-
         return data[start_index: start_index + number]
 
     def __len__(self):

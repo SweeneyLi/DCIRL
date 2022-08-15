@@ -26,12 +26,14 @@ visdom:
     origin_samples_domain: ~
     same_samples_domain: ~
     different_samples_domain: ~
-  text_win_basic:
+  line_win_basic:
     show_legend: true
-  text_win:
+  line_win:
     train_curve:
       legend:
-        - 'accuracy, total_loss, classifier_loss'
+        - 'accuracy'
+        - 'total_loss'
+        - 'classifier_loss'
         - 'layer4_loss, layer4_same_loss, layer4_different_loss'
         - 'layer3_loss, layer3_same_loss, layer3_different_loss'
         - 'layer2_loss, layer2_same_loss, layer2_different_loss'
@@ -42,7 +44,8 @@ visdom:
       height: 500
     accuracy_curve:
       legend:
-        - 'val_accuracy, test_accuracy'
+        - 'val_accuracy'
+        - 'test_accuracy'
       xlabel: 'epoch'
       ylabel: 'accuracy'
       width: 1200

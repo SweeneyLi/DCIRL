@@ -1,15 +1,14 @@
-model:
-  #  load_state_dict:
-  #    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
-  #    start_stage: 3
-  #    start_lr: 0.0005
 loss:
   coefficient:
     same: 1
     different: 1
   stage_epoch_threshold: 8
 pretrain:
-  batch_size: 450
+  #  load_state_dict:
+  #    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
+  #    start_stage: 3
+  #    start_lr: 0.0005
+  batch_size: 1000
   epoch: 200
   lr: 0.01
   optimizer:
@@ -23,6 +22,10 @@ pretrain:
     lr_decay_step: 20
     lr_decay_rate: 0.5
 finetune:
+  #  load_state_dict:
+  #    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
+  #    start_stage: 3
+  #    start_lr: 0.0005
   batch_size: 450
   epoch: 200
   lr: 0.01

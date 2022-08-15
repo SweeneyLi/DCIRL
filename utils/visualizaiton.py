@@ -18,9 +18,9 @@ class Visualization(object):
         assert self.viz.check_connection(timeout_seconds=3), 'Please Open The Visdom Server'
 
         self.image_win_basic_config = visdom_config['image_win_basic']
-        self.text_win_basic_config = visdom_config['text_win_basic']
+        self.line_win_basic_config = visdom_config['line_win_basic']
 
-        self.text_win = self.get_text_win(visdom_config['text_win'])
+        self.line_win = self.get_line_win(visdom_config['line_win'])
         self.image_win = self.get_image_win(visdom_config['image_win'])
 
     def get_image_win(self, image_win_config):
@@ -45,27 +45,27 @@ class Visualization(object):
                 scale_factor=1. / image_win_config[win_name]['scale'], mode='bilinear', align_corners=True)
         return image_win_config
 
-    def get_text_win(self, text_win_config):
-        for win_name in text_win_config.keys():
-            for k, v in self.text_win_basic_config.items():
-                text_win_config[win_name][k] = text_win_config[win_name].get(k, self.text_win_basic_config[k])
+    def get_line_win(self, line_win_config):
+        for win_name in line_win_config.keys():
+            for k, v in self.line_win_basic_config.items():
+                line_win_config[win_name][k] = line_win_config[win_name].get(k, self.line_win_basic_config[k])
 
             # title
-            text_win_config[win_name]['title'] = win_name
+            line_win_config[win_name]['title'] = win_name
             # legend
             legend_list = []
-            for legends in text_win_config[win_name]['legend']:
+            for legends in line_win_config[win_name]['legend']:
                 legend_list.extend(legends.replace(' ', '').split(','))
-            text_win_config[win_name]['legend'] = legend_list
+            line_win_config[win_name]['legend'] = legend_list
 
-            legend_length = len(text_win_config[win_name]['legend'])
-            text_win_config[win_name]['win'] = self.viz.line(
-                X=np.zeros(legend_length, dtype=int),
-                Y=np.zeros(legend_length, dtype=float),
-                opts=text_win_config[win_name])
-            text_win_config[win_name]['legend_length'] = legend_length
+            legend_length = len(legend_list)
+            line_win_config[win_name]['win'] = self.viz.line(
+                X=np.column_stack([0 for _ in range(legend_length)]),
+                Y=np.column_stack([0.0 for _ in range(legend_length)]),
+                opts=line_win_config[win_name])
+            line_win_config[win_name]['legend_length'] = legend_length
 
-        return text_win_config
+        return line_win_config
 
     def visual_text(self, text_dict):
         """
@@ -76,14 +76,14 @@ class Visualization(object):
         for win_name, texts in text_dict.items():
             texts = combine_dict(texts)
 
-            legend_length = self.text_win[win_name]['legend_length']
-            X = np.ones(legend_length, dtype=int) * texts['x']
-            Y = np.zeros(legend_length, dtype=float)
+            legend_length = self.line_win[win_name]['legend_length']
+            X = np.column_stack([texts['x'] for _ in range(legend_length)])
+            Y = np.column_stack([0.0 for _ in range(legend_length)])
 
-            for i, legend in enumerate(self.text_win[win_name]['legend']):
-                Y[i] = texts.get(legend, 0)
+            for i, legend in enumerate(self.line_win[win_name]['legend']):
+                Y[0][i] = texts.get(legend, 0)
 
-            self.viz.line(X=X, Y=Y, win=self.text_win[win_name]['win'], update='append')
+            self.viz.line(X=X, Y=Y, win=self.line_win[win_name]['win'], update='append')
 
     def visual_image(self, image_dict):
         for win_name, image_sample in image_dict.items():
