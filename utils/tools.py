@@ -11,6 +11,7 @@ import datetime
 import torch
 import numpy as np
 
+
 def read_config(yaml_config_path):
     config_list = os.listdir(yaml_config_path)
     config = {}
@@ -18,6 +19,10 @@ def read_config(yaml_config_path):
         with open(os.path.join(yaml_config_path, config_name), 'r') as f:
             config.update(yaml.load(f.read(), Loader=yaml.Loader))
     return config
+
+
+def float_2_scientific(float_number):
+    return '{:2e}'.format(float_number)
 
 
 def time_format(seconds):

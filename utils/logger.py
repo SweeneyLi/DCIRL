@@ -14,7 +14,7 @@ import logging
 
 import torch
 
-from utils.tools import time_format
+from utils.tools import time_format, float_2_scientific
 from utils.tools import get_current_time_string
 
 
@@ -165,21 +165,17 @@ class Logger:
                 'weight': None
             }
             if params.grad is not None:
-                weight_grad_dict[name]['grad'] = list(map(self.float_2_scientific, [
+                weight_grad_dict[name]['grad'] = list(map(float_2_scientific, [
                     params.grad.flatten().min().item(),
                     params.grad.flatten().max().item(),
                 ]))
 
             if params is not None:
-                weight_grad_dict[name]['weight'] = list(map(self.float_2_scientific, [
+                weight_grad_dict[name]['weight'] = list(map(float_2_scientific, [
                     params.flatten().min().item(),
                     params.flatten().max().item(),
                 ]))
         return weight_grad_dict
-
-    @staticmethod
-    def float_2_scientific(float_number):
-        return '{:2e}'.format(float_number)
 
     def log_test(self, phase, class_accuracy_dict, accuracy_info_dict):
         epoch_string = self.get_epoch_string()
