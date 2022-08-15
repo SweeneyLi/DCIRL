@@ -166,8 +166,8 @@ class Logger:
             }
             if params.grad is not None:
                 weight_grad_dict[name]['grad'] = list(map(self.float_2_scientific, [
-                    params.flatten().min().item(),
-                    params.flatten().max().item(),
+                    params.grad.flatten().min().item(),
+                    params.grad.flatten().max().item(),
                 ]))
 
             if params is not None:
