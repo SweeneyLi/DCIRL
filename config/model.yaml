@@ -1,15 +1,17 @@
 loss:
   coefficient:
     same: 1
-    different: 1
-  stage_epoch_threshold: 8
+    different: 0.8
+  stage_epoch_threshold: 5
 pretrain:
   #  load_state_dict:
   #    path: '/home/lixy/DCIRL/checkout/miniImageNet/backup/10epoch_91.38%acc.pth'
   #    start_stage: 3
   #    start_lr: 0.0005
-  batch_size: 1000
-  epoch: 200
+  batch_size: 150
+  epoch: 120
+#  batch_size: 150
+#  epoch: 2
   lr: 0.01
   optimizer:
     # sgd, adam
@@ -19,7 +21,7 @@ pretrain:
     nesterov: true
     # step, multistep, exp
     scheduler_type: "step"
-    lr_decay_step: 20
+    lr_decay_step: 30
     lr_decay_rate: 0.5
 finetune:
   #  load_state_dict:

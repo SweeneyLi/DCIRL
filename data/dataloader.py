@@ -19,7 +19,7 @@ from torchvision import transforms
 
 get_class_fun_dict = {
     'tiered_imagenet': lambda x: x.split('.')[0][:9],
-    'miniImageNet': lambda x: x.split('.')[0][:9]
+    'mini_imagenet': lambda x: x.split('.')[0][:9]
 }
 
 
@@ -42,9 +42,9 @@ def get_data_loader_dict(phase, root_path, dataset_name, image_size,
             n_ways=n_ways, k_shots=k_shots, query_shots=query_shots)
 
         if phase == 'pretrain' or (sub_phase == 'train' and k_shots > 1):
-            batch_size = int(batch_size / 3)
             num_workers = num_workers
         else:
+            batch_size = batch_size * 3
             num_workers = 1
 
         data_loader = DataLoader(

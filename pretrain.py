@@ -21,7 +21,7 @@ from utils.visualizaiton import Visualization
 
 
 class BaseTrainer:
-    def __init__(self, config_dir_path='config', gpu_device='0,1,2,3'):
+    def __init__(self, config_dir_path='config', gpu_device='0,1'):
         super(BaseTrainer, self).__init__()
         self.config = self.get_config(config_dir_path)
         self.device = self.get_device(gpu_device)
@@ -59,7 +59,7 @@ class Pretrainer(BaseTrainer):
         self.index_to_label_dict = self.data_loader_dict['train'].dataset.index_to_label_dict
 
         # network
-        self.model = resnet18(num_classes=self.class_number, pretrained=True).cuda()
+        self.model = resnet18(num_classes=self.class_number, pretrained=False).cuda()
         self.model = torch.nn.DataParallel(self.model)
 
         # loss
@@ -146,7 +146,6 @@ class Pretrainer(BaseTrainer):
 
         train_data_loader = self.data_loader_dict['train']
         max_iter = len(train_data_loader)
-
         for iter_idx, (origin_samples, origin_labels) in enumerate(train_data_loader, start=1):
             small_batch_size = len(origin_labels)
             batch_size = small_batch_size * 3
@@ -179,8 +178,8 @@ class Pretrainer(BaseTrainer):
             total_loss += classifier_loss
 
             # whole loss
-            for i in range(1, self.train_stage):
-                middle_layer_name = middle_feature_dict.keys()[self.middle_loss_length - i]
+            for i in range(1, self.train_stage + 1):
+                middle_layer_name = list(middle_feature_dict.keys())[self.middle_loss_length - i]
                 middle_feature = middle_feature_dict[middle_layer_name]
                 middle_origin_feature, middle_same_feature, middle_different_feature = torch.split(
                     middle_feature, [small_batch_size, small_batch_size, small_batch_size]
@@ -278,7 +277,7 @@ class Pretrainer(BaseTrainer):
             samples = Variable(samples.cuda())
             labels = Variable(labels.cuda())
 
-            _, _, classifier = self.model(samples)
+            _, classifier = self.model(samples)
             batch_class_correct, batch_class_number = calculate_class_correct(classifier, labels)
 
             for i, number in enumerate(batch_class_number):
@@ -289,7 +288,7 @@ class Pretrainer(BaseTrainer):
         min_accuracy, max_accuracy = 1, 0
         min_accuracy_class, max_accuracy_class = None, None
         class_accuracy_dict = {}
-        for i in range(1, self.class_number + 1):
+        for i in range(self.class_number):
             class_name = self.index_to_label_dict[i]
             the_accuracy = class_correct_list[i] / class_number_list[i]
             class_accuracy_dict[class_name] = the_accuracy

@@ -135,12 +135,12 @@ class Logger:
             self.logging.debug(epoch_string + "<acc>: %s" % acc_string)
 
             self.logging.debug(epoch_string + "<loss>:")
-            for string in ["%24s: %s" % (str(k), str(v)) for k, v in losses_dict.items()]:
+            for string in ["%30s: %s" % (str(k), str(v)) for k, v in losses_dict.items()]:
                 self.logging.debug(epoch_string + string)
 
             self.logging.debug(epoch_string + "<gradient info>:")
             weight_grad_dict = self.get_weight_grad_dict(model_parameters)
-            for string in ["%24s: %s" % (str(k), str(v)) for k, v in weight_grad_dict.items()]:
+            for string in ["%30s: %s" % (str(k), str(v)) for k, v in weight_grad_dict.items()]:
                 self.logging.debug(epoch_string + string)
 
         if iter_idx % max_iter == 0:
@@ -148,7 +148,7 @@ class Logger:
             self.logging.info(epoch_string + '-' * 60)
 
             self.logging.info(epoch_string + "<Losses on train>:")
-            for string in ["%24s: %s" % (str(k), str(v)) for k, v in epoch_average_loss.items()]:
+            for string in ["%30s: %s" % (str(k), str(v)) for k, v in epoch_average_loss.items()]:
                 self.logging.info(epoch_string + string)
 
             epoch_acc_string = "%.3f%%" % (100 * float(self.total_correct_number) / self.total_number)
@@ -184,7 +184,7 @@ class Logger:
         self.logging.critical(epoch_string + "<Accuracies on %s> " % phase + ", ".join(
             ["%s : %.2f%%" % (k, v * 100) for k, v in class_accuracy_dict.items()]))
         self.logging.critical(epoch_string + "<Summary Accuracies on %s>" % phase)
-        for string in ["%24s: %s" % (str(k), str(v)) for k, v in accuracy_info_dict.items()]:
+        for string in ["%30s: %s" % (str(k), str(v)) for k, v in accuracy_info_dict.items()]:
             self.logging.critical(epoch_string + string)
 
     def save_model(self, model, epoch, val_acc_info, lr, name=None):

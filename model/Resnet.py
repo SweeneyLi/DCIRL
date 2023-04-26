@@ -120,8 +120,7 @@ class BasicBlock(nn.Module):
 
         if self.downsample is not None:
             identity = self.downsample(x)
-
-        return out, self.relu(out + identity)
+        return out.view(out.size(0), -1), self.relu(out + identity)
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):

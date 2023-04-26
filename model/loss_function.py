@@ -6,6 +6,7 @@
 @Desc  :different loss function
 """
 import torch
+import torch.nn.functional as F
 from random import randint
 
 
@@ -16,20 +17,19 @@ class DCLoss:
 
     def get_same_different_loss(self, feature_origin, feature_same, feature_different):
         # normalization
-        feature_origin_norm = self.get_z_score_matrix(feature_origin, dimension=2)
-        feature_same_norm = self.get_z_score_matrix(feature_same, dimension=2)
-        feature_different_norm = self.get_z_score_matrix(feature_different, dimension=2)
+        feature_origin_norm = F.normalize(feature_origin, p=2, dim=1)
+        feature_same_norm = F.normalize(feature_same, p=2, dim=1)
+        feature_different_norm = F.normalize(feature_different, p=2, dim=1)
 
         # calculate similarity
-        feature_size = feature_origin.size(1)
-        cosine_similarity_same = torch.matmul(feature_origin_norm, feature_same_norm.T) / feature_size
-        cosine_similarity_different = torch.matmul(feature_origin_norm, feature_different_norm.T) / feature_size
+        cosine_similarity_same = torch.matmul(feature_origin_norm.unsqueeze(1), feature_same_norm.unsqueeze(2))
+        cosine_similarity_different = torch.matmul(feature_origin_norm.unsqueeze(1), feature_different_norm.unsqueeze(2))
 
         # get whole loss
         same_loss = 1 - cosine_similarity_same.mean()
-        different_loss = 1 + cosine_similarity_different.mean()
+        different_loss = cosine_similarity_different.mean()
 
-        return same_loss, different_loss, self.same_coefficient * same_loss + self.different_coefficient * different_loss
+        return self.same_coefficient * same_loss + self.different_coefficient * different_loss, same_loss, different_loss
 
     @staticmethod
     def get_z_score_matrix(matrix, dimension=3):
